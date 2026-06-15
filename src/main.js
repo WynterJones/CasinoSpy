@@ -186,7 +186,7 @@ $("ledgerList").addEventListener("click", (e) => {
 });
 
 // ---- pixel buddy ----
-const buddy = createBuddyStage($("buddyHost"), { size: 104 });
+const buddy = createBuddyStage($("buddyHost"), { size: 220 });
 function refreshBuddyHint() {
   const bubble = $("buddyBubble");
   if (hasBuddy()) {
@@ -198,8 +198,34 @@ function refreshBuddyHint() {
     $("buddyCompanion").title = "Create your pixel buddy";
   }
 }
-$("buddyCompanion").addEventListener("click", () => {
-  openBuddySetup($("buddyModal"), () => { buddy.refresh(); refreshBuddyHint(); });
+// ---- companion spotlight overlay ----
+let spotBuddy = null;
+function openSpotlight() {
+  const ov = $("buddySpotlight");
+  $("bsName").textContent = buddyName();
+  ov.hidden = false;
+  if (!spotBuddy) spotBuddy = createBuddyStage($("bsBuddy"), { size: 300, reactMs: 2200 });
+  else spotBuddy.refresh();
+  // next frame so the transition plays from the hidden state
+  requestAnimationFrame(() => requestAnimationFrame(() => ov.classList.add("open")));
+}
+function closeSpotlight() {
+  const ov = $("buddySpotlight");
+  ov.classList.remove("open");
+  setTimeout(() => { ov.hidden = true; }, 550);
+}
+$("buddyCompanion").addEventListener("click", openSpotlight);
+$("bsClose").addEventListener("click", closeSpotlight);
+$("bsScrim").addEventListener("click", closeSpotlight);
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !$("buddySpotlight").hidden) closeSpotlight();
+});
+$("bsEdit").addEventListener("click", () => {
+  openBuddySetup($("buddyModal"), () => {
+    buddy.refresh(); refreshBuddyHint();
+    if (spotBuddy) spotBuddy.refresh();
+    $("bsName").textContent = buddyName();
+  });
 });
 $("bmClose").addEventListener("click", () => { const m = $("buddyModal"); (m._closeBuddySetup || (() => { m.hidden = true; }))(); });
 $("bmScrim").addEventListener("click", () => { const m = $("buddyModal"); (m._closeBuddySetup || (() => { m.hidden = true; }))(); });

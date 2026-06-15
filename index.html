@@ -149,7 +149,7 @@
       <button class="jiffrey-btn" id="openJiffrey" type="button">
         <img src="/assets/jiffrey.png" alt="" />
         <span class="jb-text">
-          <b>Ask Jiffrey</b>
+          <b>Open Chat</b>
           <small>Your casino butler &amp; session guide</small>
         </span>
         <span class="jb-go">&rsaquo;</span>
@@ -161,6 +161,25 @@
       <div class="buddy-bubble" id="buddyBubble" hidden></div>
       <div class="buddy-host" id="buddyHost"></div>
     </button>
+
+    <!-- Companion spotlight overlay -->
+    <div class="buddy-spotlight" id="buddySpotlight" hidden>
+      <div class="bs-scrim" id="bsScrim"></div>
+      <div class="bs-rays" aria-hidden="true"></div>
+      <div class="bs-sparkles" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <button class="bs-close" id="bsClose" type="button" title="Close">&times;</button>
+      <div class="bs-stage">
+        <div class="bs-buddy buddy-host" id="bsBuddy"></div>
+        <div class="bs-coin" aria-hidden="true">
+          <img src="/assets/casinospy-poker-chip.png" alt="" />
+        </div>
+        <div class="bs-name" id="bsName">Jeffry</div>
+        <button class="bs-edit" id="bsEdit" type="button">Customise buddy</button>
+      </div>
+    </div>
 
     <!-- Buddy setup modal -->
     <div class="buddy-modal" id="buddyModal" hidden>
