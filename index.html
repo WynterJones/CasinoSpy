@@ -16,9 +16,9 @@
             <p class="subtitle">Perfect blackjack &amp; video-poker strategy.</p>
           </div>
         </div>
-        <div class="bank-badge even" id="bankBadge" title="Session net">
-          <span class="bb-arrow">=</span>
-          <span class="bb-val">Even</span>
+        <div class="bank-badges">
+          <div class="bank-badge even" id="sessBadge" title="Session win/loss"><span class="bb-lbl">Session</span><span class="bb-val">Off</span></div>
+          <div class="bank-badge even" id="bankBadge" title="Bankroll net"><span class="bb-lbl">Bankroll</span><span class="bb-val">Even</span></div>
         </div>
         <div class="brand-shine"></div>
       </header>
@@ -38,7 +38,7 @@
       </div>
 
       <!-- Blackjack rules -->
-      <details class="collapse" id="bjRules" open>
+      <details class="collapse" id="bjRules">
         <summary><span class="ic">S</span> Blackjack rules</summary>
         <div class="collapse-body">
           <div class="row">
@@ -63,7 +63,7 @@
       </details>
 
       <!-- Video poker pay table -->
-      <details class="collapse" id="vpRules" open hidden>
+      <details class="collapse" id="vpRules" hidden>
         <summary><span class="ic">D</span> Video poker pay table</summary>
         <div class="collapse-body">
           <div class="row">
@@ -99,7 +99,7 @@
       </details>
 
       <!-- Live session -->
-      <details class="collapse" id="sessionCard" open>
+      <details class="collapse" id="sessionCard">
         <summary><span class="ic">$</span> Session <span class="bk-net-chip even" id="sessChip">Off</span></summary>
         <div class="collapse-body">
           <div id="sessIdle">
@@ -108,6 +108,7 @@
               <div class="control"><input type="number" id="buyIn" placeholder="Starting amount" min="0" step="0.01" inputmode="decimal" /></div>
             </div>
             <button id="startSession" class="primary sess-wide" type="button">Start session</button>
+            <div class="sess-hist" id="sessHist"></div>
           </div>
           <div id="sessLive" hidden>
             <div class="counter">
@@ -120,7 +121,7 @@
             </div>
             <div class="counter-foot">
               <label class="step-lbl">Step <input type="number" id="sessStep" value="5" min="1" step="1" /></label>
-              <button id="stopSession" type="button">Stop session</button>
+              <button id="stopSession" type="button">Lock in session</button>
             </div>
           </div>
         </div>
@@ -128,7 +129,7 @@
 
       <!-- Bankroll tracker -->
       <details class="collapse" id="bankroll">
-        <summary><span class="ic">B</span> Bankroll <span class="bk-net-chip" id="netChip">Even</span></summary>
+        <summary><span class="ic">B</span> Bankroll <span class="bk-meta" id="bankMeta"></span><span class="bk-net-chip" id="netChip">Even</span></summary>
         <div class="collapse-body">
           <div class="ledger-add">
             <input type="number" id="bkAmount" placeholder="Amount" min="0" step="0.01" inputmode="decimal" />
@@ -157,7 +158,6 @@
 
     <!-- Mobile-style icon tab bar -->
     <div class="dock">
-      <div id="status" class="status"></div>
       <nav class="tabbar">
         <button class="tab" id="tabRegion" data-tip="Pick region" type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>

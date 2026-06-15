@@ -12,6 +12,7 @@ export const DEFAULTS = {
   autoIntervalMs: 3000,
   ledger: [], // bankroll entries: { type: "deposit"|"withdrawal", amount: number }
   session: { active: false, buyIn: 0, current: 0 }, // live session counter
+  sessionsHistory: [], // locked-in past sessions: { buyIn, final, result }
   jiffrey: { chats: [], activeId: null }, // saved chat threads with the butler
 };
 

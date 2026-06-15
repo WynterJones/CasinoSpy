@@ -12,10 +12,10 @@ const win = getCurrentWindow();
 const CHAT_MODEL = "sonnet";
 
 const GREETING =
-  "Good evening — **Jiffrey** at your service. I'll help you read strategy, understand the odds, and keep your bankroll in good order.\n\nA gentle reminder, as any honest butler must: the house always holds an edge — *slots especially* cannot be beaten by any system. I'm here to help you play **smart and responsibly**.\n\nStart a session (set your buy-in) and tell me what you're playing.";
+  "Good evening — **Jiffrey** at your service. Set a buy-in to start a session, then tell me what you're playing.";
 
 const PERSONA = `You are Jiffrey, a warm, witty British casino butler and responsible-gambling guide inside an app called CasinoSpy.
-Purpose is educational and for responsible entertainment only. Be honest and never misleading:
+Be honest and never misleading:
 - All casino games are negative expected value over time. SLOTS are pure RNG with a fixed RTP — no bet size, timing, or system changes the odds; never imply otherwise.
 - For blackjack and video poker you may explain correct basic/optimal strategy (these reduce the house edge but never guarantee a profit).
 - Never promise wins or "systems" that beat RNG. Encourage limits, breaks, and walking away while ahead.
@@ -105,7 +105,7 @@ function closeDrawer() { $("drawer").hidden = true; $("scrim").hidden = true; }
 $("chatMenu").addEventListener("click", openDrawer);
 $("drawerClose").addEventListener("click", closeDrawer);
 $("scrim").addEventListener("click", closeDrawer);
-$("chatNew").addEventListener("click", () => { newThread(store); saveStore(store); renderMsgs(); renderList(); closeDrawer(); });
+$("chatNewHdr").addEventListener("click", () => { newThread(store); saveStore(store); renderMsgs(); renderList(); closeDrawer(); });
 
 // ---------- session box ----------
 function renderSess() {

@@ -297,8 +297,8 @@ fn open_jiffrey(app: tauri::AppHandle) -> Result<(), String> {
     }
     WebviewWindowBuilder::new(&app, "jiffrey", WebviewUrl::App("chat.html".into()))
         .title("Jiffrey")
-        .inner_size(404.0, 624.0)
-        .min_inner_size(340.0, 460.0)
+        .inner_size(480.0, 660.0)
+        .min_inner_size(420.0, 480.0)
         .position(120.0, 120.0)
         .resizable(true)
         .decorations(false)

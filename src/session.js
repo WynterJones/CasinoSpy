@@ -17,8 +17,24 @@ export function startSession(buyIn) {
   return setSession({ active: true, buyIn: amt, current: amt });
 }
 
+// "Lock in" the current session: archive its result, then reset to idle so a
+// fresh session can be started.
 export function stopSession() {
-  return setSession({ active: false });
+  const s = getSession();
+  const all = loadSettings();
+  const entry = { buyIn: s.buyIn, final: s.current, result: winLoss(s) };
+  const hist = [entry, ...(all.sessionsHistory || [])].slice(0, 100);
+  patchSettings({ sessionsHistory: hist, session: { active: false, buyIn: 0, current: 0 } });
+  return getSession();
+}
+
+export function getSessionsHistory() {
+  return loadSettings().sessionsHistory || [];
+}
+export function deleteSessionAt(i) {
+  const h = [...getSessionsHistory()];
+  h.splice(i, 1);
+  patchSettings({ sessionsHistory: h });
 }
 
 export function adjustCurrent(delta) {

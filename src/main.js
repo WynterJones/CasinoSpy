@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { loadSettings, patchSettings } from "./settings.js";
 import {
   getSession, startSession, stopSession, adjustCurrent, setCurrent,
-  winLoss, money, wlState, onSessionChange,
+  winLoss, money, wlState, onSessionChange, getSessionsHistory, deleteSessionAt,
 } from "./session.js";
 
 const $ = (id) => document.getElementById(id);
@@ -35,10 +35,13 @@ function readForm() {
 }
 function persist() { settings = patchSettings(readForm()); return settings; }
 
-function setStatus(msg, kind = "") {
-  const el = $("status");
-  el.textContent = msg;
-  el.className = "status " + kind;
+function setStatus() { /* status line removed from the tab bar */ }
+
+function setBadge(id, val, cls) {
+  const b = $(id);
+  if (!b) return;
+  b.className = "bank-badge " + cls;
+  b.querySelector(".bb-val").textContent = val;
 }
 function renderRegion(region) {
   $("tabRegion").classList.toggle("has-region", !!region);
@@ -69,19 +72,9 @@ function renderSession() {
   $("sessIdle").hidden = s.active;
   $("sessLive").hidden = !s.active;
 
-  const wl = winLoss(s);
-  const st = wlState(wl);
+  const st = wlState(winLoss(s));
 
-  const badge = $("bankBadge");
-  if (s.active) {
-    badge.className = "bank-badge " + st.cls;
-    badge.querySelector(".bb-arrow").textContent = st.arrow;
-    badge.querySelector(".bb-val").textContent = st.cls === "even" ? "Even" : st.text;
-  } else {
-    badge.className = "bank-badge even";
-    badge.querySelector(".bb-arrow").textContent = "=";
-    badge.querySelector(".bb-val").textContent = "No session";
-  }
+  setBadge("sessBadge", s.active ? (st.cls === "even" ? "Even" : st.text) : "Off", s.active ? st.cls : "even");
 
   const chip = $("sessChip");
   chip.textContent = s.active ? (st.cls === "even" ? "Even" : st.text) : "Off";
@@ -94,6 +87,28 @@ function renderSession() {
     wlEl.className = "counter-wl " + st.cls;
     wlEl.textContent = st.cls === "even" ? "Even · buy-in " + money(s.buyIn) : st.text + " on " + money(s.buyIn);
   }
+  renderSessHistory();
+}
+
+function renderSessHistory() {
+  const wrap = $("sessHist");
+  if (!wrap) return;
+  const h = getSessionsHistory();
+  if (!h.length) {
+    wrap.innerHTML = `<h4>Session history</h4><div class="sh-empty">No locked-in sessions yet.</div>`;
+    return;
+  }
+  const net = h.reduce((a, e) => a + e.result, 0);
+  const tot = wlState(net);
+  wrap.innerHTML =
+    `<h4>Session history</h4><ul class="sess-hist-list">` +
+    h.map((e, i) => {
+      const s = wlState(e.result);
+      return `<li class="sh-item"><span class="sh-buyin">${money(e.buyIn)} &rarr; ${money(e.final)}</span>` +
+        `<span class="sh-res ${s.cls}">${s.cls === "even" ? "Even" : s.text}</span>` +
+        `<button class="led-del" data-i="${i}" title="Remove">&times;</button></li>`;
+    }).join("") +
+    `</ul><div class="sess-hist-total"><span>Across ${h.length} session${h.length > 1 ? "s" : ""}</span><b class="${tot.cls}">${tot.cls === "even" ? "Even" : tot.text}</b></div>`;
 }
 
 $("startSession").addEventListener("click", () => {
@@ -107,6 +122,12 @@ const step = () => Math.max(0.01, parseFloat($("sessStep").value) || 5);
 $("sessPlus").addEventListener("click", () => { adjustCurrent(step()); renderSession(); });
 $("sessMinus").addEventListener("click", () => { adjustCurrent(-step()); renderSession(); });
 $("sessAmt").addEventListener("change", () => { setCurrent($("sessAmt").value); renderSession(); });
+$("sessHist").addEventListener("click", (e) => {
+  const btn = e.target.closest(".led-del");
+  if (!btn) return;
+  deleteSessionAt(parseInt(btn.dataset.i, 10));
+  renderSessHistory();
+});
 onSessionChange(() => renderSession());
 
 // ---- bankroll ledger ----
@@ -122,8 +143,10 @@ function renderLedger() {
       <button class="led-del" data-i="${i}" title="Remove">&times;</button>`;
     list.appendChild(li);
   });
-  const dep = led.filter((e) => e.type === "deposit").reduce((s, e) => s + e.amount, 0);
-  const wd = led.filter((e) => e.type === "withdrawal").reduce((s, e) => s + e.amount, 0);
+  const deps = led.filter((e) => e.type === "deposit");
+  const wds = led.filter((e) => e.type === "withdrawal");
+  const dep = deps.reduce((s, e) => s + e.amount, 0);
+  const wd = wds.reduce((s, e) => s + e.amount, 0);
   const net = wd - dep;
   $("totDep").textContent = money(dep);
   $("totWd").textContent = money(wd);
@@ -134,6 +157,9 @@ function renderLedger() {
   const chip = $("netChip");
   chip.textContent = st.cls === "even" ? "Even" : st.text;
   chip.className = "bk-net-chip " + st.cls;
+  const meta = $("bankMeta");
+  if (meta) meta.textContent = `In ${money(dep)} (${deps.length}) · Out ${money(wd)} (${wds.length})`;
+  setBadge("bankBadge", st.cls === "even" ? "Even" : st.text, st.cls);
 }
 function addLedger(type) {
   const input = $("bkAmount");
