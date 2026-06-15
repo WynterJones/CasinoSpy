@@ -54,10 +54,14 @@ export function openBuddySetup(modalEl, onComplete, opts = {}) {
     options: [],
     selected: null,
     clips: { idle: true, win: true, lose: true, emote0: false, emote1: false },
+    emoteActions: ["", ""], // user sentences controlling each emote
     progress: [],
   };
+  let previewTimers = []; // animated-preview loops on the progress screen
 
   modalEl.hidden = false;
+  modalEl.classList.remove("minimized");
+  hideMiniPill();
   if (opts.editId && getCompanion(opts.editId)) {
     state.step = "edit"; state.editId = opts.editId;
   } else if (!state.apiKey) {
@@ -67,7 +71,10 @@ export function openBuddySetup(modalEl, onComplete, opts = {}) {
   }
   render();
 
-  function setError(msg) { state.error = msg; render(); }
+  function setError(msg) {
+    state.error = msg;
+    if (modalEl.classList.contains("minimized")) restore(); else render();
+  }
   function errorBanner() {
     return state.error ? `<div class="bm-error" id="bmError">${esc(state.error)}</div>` : "";
   }
@@ -85,6 +92,46 @@ export function openBuddySetup(modalEl, onComplete, opts = {}) {
     else if (state.step === "animate") renderAnimate();
     else if (state.step === "edit") renderEdit();
     else if (state.step === "done") renderDone();
+    // While generating, the ✕ becomes a minimize control so the app stays usable.
+    const closeBtn = modalEl.querySelector("#bmClose");
+    if (closeBtn) {
+      closeBtn.innerHTML = state.busy ? "&minus;" : "&times;";
+      closeBtn.title = state.busy ? "Minimize (keeps generating)" : "Close";
+    }
+    if (modalEl.classList.contains("minimized")) updateMiniPill();
+  }
+
+  // ---- minimize while generating ----
+  function minimize() { modalEl.classList.add("minimized"); showMiniPill(); }
+  function restore() {
+    modalEl.classList.remove("minimized");
+    hideMiniPill();
+    modalEl.hidden = false;
+    render();
+  }
+  function miniPillEl() {
+    let p = document.getElementById("bmMiniPill");
+    if (!p) {
+      p = document.createElement("button");
+      p.id = "bmMiniPill"; p.type = "button"; p.className = "bm-mini-pill"; p.hidden = true;
+      p.addEventListener("click", restore);
+      document.body.appendChild(p);
+    }
+    return p;
+  }
+  function showMiniPill() { miniPillEl().hidden = false; updateMiniPill(); }
+  function hideMiniPill() { const p = document.getElementById("bmMiniPill"); if (p) p.hidden = true; }
+  function updateMiniPill() {
+    const p = miniPillEl();
+    if (state.step === "done") {
+      p.className = "bm-mini-pill ready";
+      p.innerHTML = `<span class="bm-mini-ic">✓</span> ${esc(state.name.trim() || "Buddy")} ready — view`;
+      return;
+    }
+    const done = state.progress.filter((x) => x.status === "done" || x.status === "error").length;
+    const total = state.progress.length || 1;
+    p.className = "bm-mini-pill";
+    p.innerHTML = `<span class="bm-mini-spin"></span> Generating ${done}/${total}…`;
   }
 
   // ---- step: api key ----
@@ -151,6 +198,7 @@ export function openBuddySetup(modalEl, onComplete, opts = {}) {
     state.name = "Buddy"; state.description = ""; state.imgCount = 3;
     state.options = []; state.selected = null;
     state.clips = { idle: true, win: true, lose: true, emote0: false, emote1: false };
+    state.emoteActions = ["", ""];
     state.error = null; state.step = "describe"; render();
   }
 
@@ -221,23 +269,53 @@ export function openBuddySetup(modalEl, onComplete, opts = {}) {
 
   // ---- step: clips (which animations to generate) ----
   function renderClips() {
-    const rows = CLIP_DEFS.map((c) => `
-      <label class="bm-clip${c.required ? " req" : ""}">
-        <input type="checkbox" data-key="${c.key}" ${state.clips[c.key] ? "checked" : ""} ${c.required ? "checked disabled" : ""} />
-        <span>${esc(c.label)}${c.required ? " (always)" : ""}</span>
-      </label>`).join("");
+    const rows = CLIP_DEFS.map((c) => clipRow(c, state.clips[c.key], c.required)).join("");
     body.innerHTML = `
       ${errorBanner()}
-      <p class="bm-lead">Each animation is generated separately. Idle is required; emotes play at random while idling.</p>
+      <p class="bm-lead">Each animation is generated separately. Idle is required; emotes play at random while idling — describe what each one does.</p>
       <div class="bm-clips">${rows}</div>
       <div class="bm-actions">
         <button class="primary" id="bmAnimate">Generate animations</button>
         <button class="bm-ghost" id="bmBackPick">Back</button>
       </div>`;
-    body.querySelectorAll(".bm-clip input[data-key]").forEach((el) =>
-      el.addEventListener("change", () => { state.clips[el.dataset.key] = el.checked; }));
+    wireClipRows(body);
     body.querySelector("#bmAnimate").addEventListener("click", animateNew);
     body.querySelector("#bmBackPick").addEventListener("click", () => { state.step = "pick"; render(); });
+  }
+
+  // A single clip toggle. Emote rows carry a text box for a custom action sentence.
+  function clipRow(c, checked, locked) {
+    if (c.emoteIndex !== undefined) {
+      return `
+        <div class="bm-clip-row">
+          <label class="bm-clip">
+            <input type="checkbox" data-key="${c.key}" ${checked ? "checked" : ""} />
+            <span>${esc(c.label)}</span>
+          </label>
+          <input class="bm-input bm-emote-in" data-emote="${c.emoteIndex}"
+                 placeholder="What does it do? e.g. ${esc(c.action)}"
+                 value="${esc(state.emoteActions[c.emoteIndex] || "")}" ${checked ? "" : "hidden"} />
+        </div>`;
+    }
+    return `
+      <label class="bm-clip${locked ? " req" : ""}">
+        <input type="checkbox" data-key="${c.key}" ${checked ? "checked" : ""} ${locked ? "checked disabled" : ""} />
+        <span>${esc(c.label)}${locked ? " (always)" : ""}</span>
+      </label>`;
+  }
+
+  function wireClipRows(scope) {
+    scope.querySelectorAll(".bm-clip input[data-key]").forEach((el) =>
+      el.addEventListener("change", () => {
+        state.clips[el.dataset.key] = el.checked;
+        const def = CLIP_DEFS.find((c) => c.key === el.dataset.key);
+        if (def && def.emoteIndex !== undefined) {
+          const inp = scope.querySelector(`.bm-emote-in[data-emote="${def.emoteIndex}"]`);
+          if (inp) { inp.hidden = !el.checked; if (el.checked) inp.focus(); }
+        }
+      }));
+    scope.querySelectorAll(".bm-emote-in").forEach((el) =>
+      el.addEventListener("input", () => { state.emoteActions[parseInt(el.dataset.emote, 10)] = el.value; }));
   }
 
   function selectedClipKeys() {
@@ -248,35 +326,59 @@ export function openBuddySetup(modalEl, onComplete, opts = {}) {
   function renderAnimate() {
     const rows = state.progress.map((p) => {
       const ic = p.status === "done" ? "✓" : p.status === "error" ? "!" : p.status === "running" ? "" : "·";
-      return `<li class="bm-prog ${p.status}"><span class="bm-prog-ic">${ic}</span>${esc(p.label)}</li>`;
+      const preview = (p.frames && p.frames.length)
+        ? `<img class="bm-prog-preview" data-key="${p.key}" src="${p.frames[0]}" alt="" />`
+        : `<span class="bm-prog-preview empty"></span>`;
+      return `<li class="bm-prog ${p.status}"><span class="bm-prog-ic">${ic}</span><span class="bm-prog-label">${esc(p.label)}</span>${preview}</li>`;
     }).join("");
     body.innerHTML = `
       ${errorBanner()}
       <p class="bm-lead">Bringing <b>${esc(state.name.trim() || "Buddy")}</b> to life…</p>
       <ul class="bm-prog-list">${rows}</ul>`;
+    startPreviews();
   }
-  function setProgress(key, status) {
-    state.progress = state.progress.map((p) => (p.key === key ? { ...p, status } : p));
+  // Loop the generated frames of each completed clip so the user can preview it.
+  function startPreviews() {
+    previewTimers.forEach((t) => clearInterval(t));
+    previewTimers = [];
+    state.progress.forEach((p) => {
+      if (!p.frames || p.frames.length < 2) return;
+      const imgEl = body.querySelector(`.bm-prog-preview[data-key="${p.key}"]`);
+      if (!imgEl) return;
+      let i = 0;
+      previewTimers.push(setInterval(() => {
+        i = (i + 1) % p.frames.length;
+        imgEl.src = p.frames[i];
+      }, 180));
+    });
+  }
+  function setProgress(key, status, frames) {
+    state.progress = state.progress.map((p) =>
+      (p.key === key ? { ...p, status, ...(frames ? { frames } : {}) } : p));
     render();
   }
 
-  // Generate the selected clips for a known characterId. Returns
+  // Generate the selected clips for a known characterId. `emoteActions` are the
+  // user's custom sentences (fall back to the default action when blank). Returns
   // { result: {idle,win,lose}, emotes: [clip|null, clip|null] }.
-  async function runClips(characterId, baseSprite, keys) {
+  async function runClips(characterId, baseSprite, keys, emoteActions = []) {
     const result = {};
     const emotes = [null, null];
     for (const c of CLIP_DEFS) {
       if (!keys.includes(c.key)) continue;
+      const action = (c.emoteIndex !== undefined && (emoteActions[c.emoteIndex] || "").trim())
+        ? emoteActions[c.emoteIndex].trim()
+        : c.action;
       setProgress(c.key, "running");
       try {
-        const frames = await animateAndCollect(getApiKey(), { characterId, action: c.action });
+        const frames = await animateAndCollect(getApiKey(), { characterId, action });
         const fr = frames.length ? frames : [baseSprite];
         if (c.emoteIndex !== undefined) emotes[c.emoteIndex] = fr; else result[c.key] = fr;
-        setProgress(c.key, "done");
+        setProgress(c.key, "done", fr);
       } catch {
         const fb = [baseSprite];
         if (c.emoteIndex !== undefined) emotes[c.emoteIndex] = fb; else result[c.key] = fb;
-        setProgress(c.key, "error");
+        setProgress(c.key, "error", fb);
       }
     }
     return { result, emotes };
@@ -299,7 +401,7 @@ export function openBuddySetup(modalEl, onComplete, opts = {}) {
       const characterId = job.characterId;
       if (!characterId) throw new Error("PixelLab did not return a character id");
 
-      const { result, emotes } = await runClips(characterId, sprite, keys);
+      const { result, emotes } = await runClips(characterId, sprite, keys, state.emoteActions);
       const patch = {
         name: state.name.trim() || "Buddy",
         description: state.description.trim(),
@@ -309,6 +411,7 @@ export function openBuddySetup(modalEl, onComplete, opts = {}) {
         win: result.win || [],
         lose: result.lose || [],
         emotes: [emotes[0] || [], emotes[1] || []],
+        emoteActions: [state.emoteActions[0] || "", state.emoteActions[1] || ""],
       };
       if (state.mode === "regen" && state.editId) updateCompanion(state.editId, patch);
       else addCompanion(patch);
@@ -330,11 +433,24 @@ export function openBuddySetup(modalEl, onComplete, opts = {}) {
       if (key === "emote1") return !!(c.emotes && c.emotes[1] && c.emotes[1].length);
       return Array.isArray(c[key]) && c[key].length;
     };
-    const rows = CLIP_DEFS.map((cd) => `
-      <label class="bm-clip">
-        <input type="checkbox" data-key="${cd.key}" />
-        <span>${esc(cd.label)} <small>${has(cd.key) ? "· has it" : "· none"}</small></span>
-      </label>`).join("");
+    // Prefill the emote sentences from the character so they can be tweaked.
+    state.emoteActions = [(c.emoteActions && c.emoteActions[0]) || "", (c.emoteActions && c.emoteActions[1]) || ""];
+    const rows = CLIP_DEFS.map((cd) => {
+      const meta = `<small>${has(cd.key) ? "· has it" : "· none"}</small>`;
+      if (cd.emoteIndex !== undefined) {
+        return `
+          <div class="bm-clip-row">
+            <label class="bm-clip">
+              <input type="checkbox" data-key="${cd.key}" />
+              <span>${esc(cd.label)} ${meta}</span>
+            </label>
+            <input class="bm-input bm-emote-in" data-emote="${cd.emoteIndex}"
+                   placeholder="What does it do? e.g. ${esc(cd.action)}"
+                   value="${esc(state.emoteActions[cd.emoteIndex] || "")}" />
+          </div>`;
+      }
+      return `<label class="bm-clip"><input type="checkbox" data-key="${cd.key}" /><span>${esc(cd.label)} ${meta}</span></label>`;
+    }).join("");
     body.innerHTML = `
       ${errorBanner()}
       <div class="bm-edit-head">
@@ -354,6 +470,8 @@ export function openBuddySetup(modalEl, onComplete, opts = {}) {
       <div class="bm-actions">
         <button class="bm-ghost" id="bmEditBack">‹ Back to characters</button>
       </div>`;
+    body.querySelectorAll(".bm-emote-in").forEach((el) =>
+      el.addEventListener("input", () => { state.emoteActions[parseInt(el.dataset.emote, 10)] = el.value; }));
     body.querySelector("#bmEditName").addEventListener("change", (e) => {
       updateCompanion(c.id, { name: e.target.value.trim() || "Buddy" }); finishChange();
     });
@@ -384,13 +502,15 @@ export function openBuddySetup(modalEl, onComplete, opts = {}) {
     state.progress = CLIP_DEFS.filter((cd) => keys.includes(cd.key)).map((cd) => ({ key: cd.key, label: cd.label, status: "pending" }));
     render();
     try {
-      const { result, emotes } = await runClips(c.characterId, sprite, keys);
+      const { result, emotes } = await runClips(c.characterId, sprite, keys, state.emoteActions);
       const patch = { ...result };
       if (emotes[0] || emotes[1]) {
         const cur = (c.emotes || []).slice();
-        if (emotes[0]) cur[0] = emotes[0];
-        if (emotes[1]) cur[1] = emotes[1];
+        const curActions = (c.emoteActions || []).slice();
+        if (emotes[0]) { cur[0] = emotes[0]; curActions[0] = state.emoteActions[0] || ""; }
+        if (emotes[1]) { cur[1] = emotes[1]; curActions[1] = state.emoteActions[1] || ""; }
         patch.emotes = [cur[0] || [], cur[1] || []];
+        patch.emoteActions = [curActions[0] || "", curActions[1] || ""];
       }
       updateCompanion(id, patch);
       state.busy = false; state.step = "edit"; render();
@@ -421,6 +541,13 @@ export function openBuddySetup(modalEl, onComplete, opts = {}) {
   function finishChange() { if (onComplete) onComplete(); }
 
   function close() {
+    // While generating, ✕ / scrim minimize instead of closing — the job keeps
+    // running and the app stays usable; a pill restores the modal.
+    if (state.busy) { minimize(); return; }
+    previewTimers.forEach((t) => clearInterval(t));
+    previewTimers = [];
+    hideMiniPill();
+    modalEl.classList.remove("minimized");
     modalEl.hidden = true;
     finishChange();
   }

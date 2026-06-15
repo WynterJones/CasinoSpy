@@ -410,6 +410,11 @@ body.overlay-body::before { display: none; }
   color: #ffe49a; box-shadow: 0 2px 8px rgba(0,0,0,0.4);
 }
 .overlay-drag button:hover { color: #ff625d; border-color: var(--border-strong); }
+/* Consistent window header (Strategy + Session): chip · title · status · close */
+.win-head { gap: 8px; }
+.win-head .win-chip { display: inline-flex; align-items: center; }
+.win-head .win-chip img { width: 20px; height: 20px; border-radius: 50%; display: block; box-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+.win-head .win-title { flex: 1; font-size: 12px; font-weight: 800; letter-spacing: 0.5px; color: #ffe49a; }
 .overlay-body-inner { padding: 5px 14px 12px; flex: 1; display: flex; flex-direction: column; }
 
 .move {
@@ -1092,29 +1097,18 @@ body { height: 100%; overflow-y: auto; overflow-x: hidden; }
 .dock-wide:hover { border-color: var(--border-strong); }
 
 /* ---------------- Mobile icon tab bar ---------------- */
-.tabbar { display: flex; align-items: center; gap: 7px; }
+.tabbar { display: flex; align-items: stretch; gap: 7px; }
 .tab {
-  position: relative; flex: 1; min-height: 48px; padding: 0;
-  display: grid; place-items: center;
+  position: relative; flex: 1; min-height: 52px; padding: 6px 2px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
   background: rgba(0,0,0,0.26);
   border: 1px solid rgba(255,226,142,0.18);
   border-radius: 13px; color: #d8c89a;
 }
-.tab svg { width: 23px; height: 23px; }
+.tab svg { width: 21px; height: 21px; }
+.tab-label { font-size: 9.5px; font-weight: 700; letter-spacing: 0.2px; line-height: 1; }
 .tab:hover { color: #fff6db; border-color: var(--border-strong); background: rgba(0,0,0,0.42); }
 .tab.has-region { border-color: rgba(46,209,120,0.6); color: #9fe7bb; }
-.tab-jiffrey { overflow: hidden; }
-.tab-av { width: 36px; height: 36px; border-radius: 50%; }
-.tab::after {
-  content: attr(data-tip);
-  position: absolute; bottom: calc(100% + 9px); left: 50%;
-  transform: translateX(-50%) translateY(4px);
-  background: rgba(3,14,10,0.97); color: #fff6db; border: 1px solid var(--border);
-  padding: 5px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; white-space: nowrap;
-  opacity: 0; pointer-events: none; transition: opacity .12s, transform .12s;
-  box-shadow: 0 8px 18px rgba(0,0,0,0.55);
-}
-.tab:hover::after { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 /* ---------------- Session counter ---------------- */
 .sess-wide { width: 100%; }
@@ -1380,7 +1374,9 @@ body { height: 100%; overflow-y: auto; overflow-x: hidden; }
 }
 .buddy-pet .pet-host { display: grid; place-items: center; cursor: grab; }
 .buddy-pet.dragging .pet-host { cursor: grabbing; }
-.buddy-pet.dragging { filter: drop-shadow(0 16px 22px rgba(0,0,0,0.6)); }
+.buddy-pet.dragging { z-index: 10; filter: drop-shadow(0 16px 22px rgba(0,0,0,0.6)); }
+.pet-grip { cursor: grab; font-size: 15px; letter-spacing: -2px; }
+.pet-grip:active, .buddy-pet.dragging .pet-grip { cursor: grabbing; }
 /* Persisted left↔right flip — only the sprite mirrors, not the tool row. */
 .buddy-pet.flip .buddy-stage { transform: scaleX(-1); }
 .buddy-stage.flip { transform: scaleX(-1); }
@@ -1600,6 +1596,25 @@ body { height: 100%; overflow-y: auto; overflow-x: hidden; }
 .bm-clip input { width: 16px; height: 16px; accent-color: var(--accent); }
 .bm-clip small { color: var(--muted); }
 .bm-clip.req { color: var(--muted); }
+.bm-clip-row { display: flex; flex-direction: column; gap: 6px; }
+.bm-emote-in { margin-left: 25px; width: calc(100% - 25px); font-size: 12px; padding: 7px 10px; }
+/* Animated preview shown beside each clip on the progress screen */
+.bm-prog-label { flex: 1; }
+.bm-prog-preview { width: 34px; height: 34px; object-fit: contain; image-rendering: pixelated; border-radius: 6px; }
+.bm-prog-preview.empty { display: inline-block; }
+/* Minimized-while-generating: hide the modal, leave the app usable, show a pill */
+.buddy-modal.minimized { pointer-events: none; }
+.buddy-modal.minimized .bm-scrim, .buddy-modal.minimized .bm-card { display: none; }
+.bm-mini-pill {
+  position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 90;
+  display: flex; align-items: center; gap: 8px; min-height: 0; padding: 9px 15px; border-radius: 999px;
+  background: rgba(8,30,21,0.97); border: 1px solid var(--accent); color: #fff6db;
+  font-size: 12px; font-weight: 800; cursor: pointer; box-shadow: 0 10px 26px rgba(0,0,0,0.55);
+}
+.bm-mini-pill:hover { border-color: rgba(255,255,255,0.5); }
+.bm-mini-pill.ready { border-color: rgba(46,209,120,0.7); }
+.bm-mini-ic { color: #2ed178; font-weight: 900; }
+.bm-mini-spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(242,201,76,0.3); border-top-color: var(--accent); animation: spin 0.8s linear infinite; }
 /* Edit header */
 .bm-edit-head { display: flex; gap: 12px; align-items: flex-start; }
 .bm-edit-fields { flex: 1; display: flex; flex-direction: column; gap: 6px; }
@@ -1634,8 +1649,18 @@ body { height: 100%; overflow-y: auto; overflow-x: hidden; }
 .sp-wl { font-size: 12px; font-weight: 800; }
 .sp-wl.up { color: #2ed178; } .sp-wl.down { color: #ff625d; } .sp-wl.even { color: var(--muted); }
 
-/* Mini session history in the session window. */
-.sess-hist.mini { margin-top: 2px; }
+/* Mini session history in the session window — collapsible, scrolls when open. */
+.sess-hist-wrap { margin-top: 10px; display: flex; flex-direction: column; min-height: 0; }
+.sess-hist-toggle {
+  display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 0;
+  padding: 9px 11px; border-radius: 10px; cursor: pointer;
+  background: rgba(0,0,0,0.28); border: 1px solid rgba(255,226,142,0.18); color: var(--muted);
+  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;
+}
+.sess-hist-toggle:hover { color: #fff6db; border-color: var(--border-strong); }
+.sess-hist-toggle .chev { font-size: 16px; line-height: 1; transition: transform 0.15s ease; }
+.sess-hist-toggle.open .chev { transform: rotate(90deg); }
+.sess-hist.mini { margin-top: 8px; max-height: 360px; overflow-y: auto; }
 .sh-title { font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); font-weight: 800; margin-bottom: 6px; }
 .sh-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
 .sh-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11.5px; padding: 5px 9px; border-radius: 8px; background: rgba(0,0,0,0.26); border: 1px solid rgba(255,226,142,0.14); }

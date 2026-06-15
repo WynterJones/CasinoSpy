@@ -5,7 +5,7 @@ import {
   winLoss, money, wlState, onSessionChange, getSessionsHistory, deleteSessionAt,
 } from "./session.js";
 import {
-  createBuddyStage, buddyName, loadBuddy, saveBuddy,
+  createBuddyStage, buddyName, loadBuddy,
   getCompanions, getCompanion, updateCompanion, hasAnyCompanion,
 } from "./buddy.js";
 import { initSlots } from "./slots.js";
@@ -68,7 +68,7 @@ async function tab(cmd, msg) {
 $("tabRegion").addEventListener("click", () => { persist(); tab("open_selector", "Drag a box around the hand…"); });
 $("tabOverlay").addEventListener("click", () => { persist(); tab("open_overlay", "Strategy overlay opened."); });
 $("tabSession").addEventListener("click", () => tab("open_session_overlay", "Session counter opened."));
-$("tabSlots").addEventListener("click", () => tab("open_slots_data", "Opening OLG Slots Data…"));
+$("slotsData").addEventListener("click", () => tab("open_slots_data", "Opening OLG Slots Data…"));
 $("tabJiffrey").addEventListener("click", () => tab("open_jiffrey", "Jiffrey is here."));
 $("openJiffrey").addEventListener("click", () => tab("open_jiffrey", "Jiffrey is here."));
 
@@ -216,6 +216,7 @@ function buildCompanions() {
     }
     node.innerHTML = `
       <div class="pet-tools">
+        <button class="pet-tb pet-grip" data-act="drag" title="Drag to move">⠿</button>
         <button class="pet-tb" data-act="flip" title="Flip">⇄</button>
         <button class="pet-tb" data-act="edit" title="Customise">✎</button>
         <button class="pet-tb" data-act="hide" title="Hide">×</button>
@@ -231,42 +232,52 @@ function buildCompanions() {
 }
 
 function wirePet(node, id, host) {
-  node.querySelectorAll(".pet-tb").forEach((b) =>
+  node.querySelectorAll(".pet-tb").forEach((b) => {
+    if (b.dataset.act === "drag") return; // grip handles dragging, not click
     b.addEventListener("click", (e) => {
       e.stopPropagation();
       const act = b.dataset.act;
       if (act === "flip") { const c = getCompanion(id); updateCompanion(id, { flip: !(c && c.flip) }); node.classList.toggle("flip"); }
       else if (act === "edit") { openSetup({ editId: id }); }
       else if (act === "hide") { updateCompanion(id, { hidden: true }); buildCompanions(); }
-    }));
-  // Drag the sprite to reposition; store as viewport percentages.
-  let down = null, moved = false;
-  host.addEventListener("pointerdown", (e) => {
-    const r = node.getBoundingClientRect();
-    down = { x: e.clientX, y: e.clientY, l: r.left, t: r.top };
-    moved = false; node.classList.add("dragging");
-    try { host.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    });
   });
-  host.addEventListener("pointermove", (e) => {
-    if (!down) return;
-    const dx = e.clientX - down.x, dy = e.clientY - down.y;
-    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
-      moved = true;
-      node.style.left = Math.max(0, Math.min(window.innerWidth - 40, down.l + dx)) + "px";
-      node.style.top = Math.max(0, Math.min(window.innerHeight - 40, down.t + dy)) + "px";
-      node.style.right = "auto"; node.style.bottom = "auto";
-    }
-  });
-  host.addEventListener("pointerup", (e) => {
-    if (!down) return;
-    try { host.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
-    node.classList.remove("dragging");
-    if (moved) {
+
+  // Smooth drag: track the pointer's offset within the node and follow the cursor
+  // exactly. Works from the grip handle or anywhere on the sprite body.
+  function attachDrag(handle) {
+    if (!handle) return;
+    let off = null, moved = false;
+    handle.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
       const r = node.getBoundingClientRect();
-      updateCompanion(id, { pos: { xPct: clampPct(r.left / window.innerWidth * 100), yPct: clampPct(r.top / window.innerHeight * 100) } });
-    }
-    down = null;
-  });
+      off = { x: e.clientX - r.left, y: e.clientY - r.top };
+      moved = false; node.classList.add("dragging");
+      try { handle.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    });
+    handle.addEventListener("pointermove", (e) => {
+      if (!off) return;
+      moved = true;
+      const w = node.offsetWidth, h = node.offsetHeight;
+      node.style.left = Math.max(0, Math.min(window.innerWidth - w, e.clientX - off.x)) + "px";
+      node.style.top = Math.max(0, Math.min(window.innerHeight - h, e.clientY - off.y)) + "px";
+      node.style.right = "auto"; node.style.bottom = "auto";
+    });
+    const end = (e) => {
+      if (!off) return;
+      try { handle.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+      node.classList.remove("dragging");
+      if (moved) {
+        const r = node.getBoundingClientRect();
+        updateCompanion(id, { pos: { xPct: clampPct(r.left / window.innerWidth * 100), yPct: clampPct(r.top / window.innerHeight * 100) } });
+      }
+      off = null;
+    };
+    handle.addEventListener("pointerup", end);
+    handle.addEventListener("pointercancel", end);
+  }
+  attachDrag(node.querySelector(".pet-grip"));
+  attachDrag(host);
 }
 
 // Spotlight applies the primary character's flip to its big sprite.
@@ -308,7 +319,6 @@ function openSetup(opts = {}) {
 // Bottom-nav: Customise opens the spotlight (or manager if no character yet);
 // Flip mirrors the primary character.
 $("tabBuddy").addEventListener("click", () => { if (hasAnyCompanion()) openSpotlight(); else openSetup(); });
-$("tabFlip").addEventListener("click", () => { saveBuddy({ flip: !loadBuddy().flip }); buildCompanions(); applyBuddyFlip(); });
 $("bsClose").addEventListener("click", closeSpotlight);
 $("bsScrim").addEventListener("click", closeSpotlight);
 window.addEventListener("keydown", (e) => {

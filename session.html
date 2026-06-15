@@ -8,10 +8,11 @@
   </head>
   <body class="overlay-body">
     <div class="sess-overlay">
-      <div class="overlay-drag" data-tauri-drag-region>
-        <span class="title">Session</span>
+      <div class="win-head overlay-drag" data-tauri-drag-region>
+        <span class="win-chip"><img src="/assets/casinospy-poker-chip.png" alt="" /></span>
+        <span class="win-title">Session</span>
         <span class="dot" id="sessDot">&#9679;</span>
-        <button id="closeSess" title="Close">&times;</button>
+        <button class="win-x" id="closeSess" title="Close">&times;</button>
       </div>
       <div class="sess-body">
         <div class="sess-stage"><div class="buddy-host" id="sessBuddy"></div></div>
@@ -36,7 +37,12 @@
             <label class="step-lbl">Step <input type="number" id="oStep" value="5" min="1" step="1" /></label>
             <button id="oStop" type="button">Lock in</button>
           </div>
-          <div class="sess-hist mini" id="oHist"></div>
+          <div class="sess-hist-wrap" id="oHistWrap">
+            <button class="sess-hist-toggle" id="oHistToggle" type="button">
+              <span>Session history</span><span class="chev">&rsaquo;</span>
+            </button>
+            <div class="sess-hist mini" id="oHist" hidden></div>
+          </div>
         </div>
       </div>
     </div>

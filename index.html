@@ -138,6 +138,7 @@
         <div class="collapse-body">
           <div class="slots-actions">
             <button class="slots-open" id="openOlg" type="button">Open OLG Casino ↗</button>
+            <button class="slots-open" id="slotsData" type="button">📊 OLG Tracker</button>
             <button class="slots-add accent" id="addSlot" type="button">+ Add slot</button>
           </div>
           <input class="slots-search" id="slotsSearch" type="search" placeholder="Search your slots…" autocomplete="off" />
@@ -268,26 +269,25 @@
     <!-- Mobile-style icon tab bar -->
     <div class="dock">
       <nav class="tabbar">
-        <button class="tab" id="tabRegion" data-tip="Pick region" type="button">
+        <button class="tab" id="tabRegion" type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>
+          <span class="tab-label">Region</span>
         </button>
-        <button class="tab" id="tabOverlay" data-tip="Strategy overlay" type="button">
+        <button class="tab" id="tabOverlay" type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="6.5" width="10" height="13.5" rx="2" transform="rotate(-9 8.5 13.2)"/><rect x="10" y="4" width="10" height="13.5" rx="2" transform="rotate(9 15 10.7)"/></svg>
+          <span class="tab-label">Overlay</span>
         </button>
-        <button class="tab" id="tabSession" data-tip="Session counter" type="button">
+        <button class="tab" id="tabSession" type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="13.5" r="7"/><path d="M12 13.5l3-2.2M12 6.5V4M9.5 4h5"/></svg>
+          <span class="tab-label">Session</span>
         </button>
-        <button class="tab" id="tabSlots" data-tip="OLG slots data" type="button">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21h18"/><path d="M6 21V12M12 21V5M18 21v-7"/></svg>
-        </button>
-        <button class="tab" id="tabBuddy" data-tip="Customise character" type="button">
+        <button class="tab" id="tabBuddy" type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.3L18 8l-3 3 .8 4.6L12 13.5 8.2 15.6 9 11 6 8l4.1-.7z"/></svg>
+          <span class="tab-label">Buddy</span>
         </button>
-        <button class="tab" id="tabFlip" data-tip="Flip character" type="button">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M8 7l-4 4 4 4"/><path d="M16 7l4 4-4 4"/></svg>
-        </button>
-        <button class="tab tab-jiffrey" id="tabJiffrey" data-tip="Ask Jiffrey" type="button">
-          <img class="tab-av" src="/assets/jiffrey.png" alt="" />
+        <button class="tab" id="tabJiffrey" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.9-.9L3 21l1.9-5.6A8.5 8.5 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5z"/></svg>
+          <span class="tab-label">Chat</span>
         </button>
       </nav>
     </div>

@@ -43,6 +43,7 @@ export function newCompanionId() {
 const CHAR_DEFAULTS = {
   name: "Buddy", description: "", characterId: null, base: null,
   idle: [], win: [], lose: [], emotes: [],
+  emoteActions: [], // user sentences controlling each emote's animation
   flip: false, pos: null, size: 200, hidden: false, createdAt: 0,
 };
 

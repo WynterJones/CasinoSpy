@@ -1,31 +1,30 @@
-// Rounds the app icon corners and adds a gold border, then writes the
-// 1024px source that `tauri icon` expands into the full icon set.
+// Clips the app icon to a full circle (poker chip) with a gold ring, then writes
+// the 1024px source that `tauri icon` expands into the full icon set. A circle
+// (rather than a rounded square) means the chip never looks clipped at the corners.
 import sharp from "sharp";
 import { writeFileSync } from "node:fs";
 
 const SIZE = 1024;
-// macOS draws app icons inside a ~80% "safe area" with transparent margin around
-// the rounded tile; filling the whole canvas makes the icon look clipped in the
-// Dock/Finder. Keep the tile ~816px (inset ~104px) with a continuous-corner radius
-// (~22% of the tile) so it reads as a proper rounded macOS icon.
-const PAD = 104;           // transparent margin around the rounded tile
-const R = 182;             // corner radius (~0.223 * inner)
-const BORDER = 16;         // gold border thickness
+// Small transparent margin so the circle isn't flush to the canvas edge; the
+// corners are transparent, so the chip can fill most of the tile.
+const PAD = 44;
+const BORDER = 18; // gold ring thickness
 const inner = SIZE - PAD * 2;
+const cx = SIZE / 2;
+const cy = SIZE / 2;
+const r = inner / 2;
 
 const src = "public/assets/casinospy-poker-chip.png";
 
-// Base art clipped to a rounded rectangle (inside the padding).
+// Circular mask (everything outside the circle becomes transparent).
 const clip = Buffer.from(
-  `<svg width="${SIZE}" height="${SIZE}"><rect x="${PAD}" y="${PAD}" width="${inner}" height="${inner}" rx="${R}" ry="${R}" fill="#fff"/></svg>`
+  `<svg width="${SIZE}" height="${SIZE}"><circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff"/></svg>`
 );
-// Gold border drawn just inside the rounded edge.
+// Gold ring drawn just inside the circle's edge.
 const border = Buffer.from(
   `<svg width="${SIZE}" height="${SIZE}">
-     <rect x="${PAD + BORDER / 2}" y="${PAD + BORDER / 2}"
-           width="${inner - BORDER}" height="${inner - BORDER}"
-           rx="${R - BORDER / 2}" ry="${R - BORDER / 2}"
-           fill="none" stroke="#eccb62" stroke-width="${BORDER}"/>
+     <circle cx="${cx}" cy="${cy}" r="${r - BORDER / 2}"
+             fill="none" stroke="#eccb62" stroke-width="${BORDER}"/>
    </svg>`
 );
 
