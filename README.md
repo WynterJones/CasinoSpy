@@ -1,15 +1,29 @@
+<div align="center">
+
+<img src="public/assets/casinospy-poker-chip.png" width="120" alt="CasinoSpy logo" />
+
 # ♠ CasinoSpy
 
-A macOS desktop app (Tauri + Rust) that watches a region of your screen, reads the
-cards with **your local Claude Code CLI** (Opus vision — no API key), and shows the
-**mathematically perfect play** on a floating, always-on-top overlay. Works for
-blackjack (live-dealer video, digital tables, OLG/RNG video blackjack) and the full
-**IGT Game King** video-poker lineup.
+**A macOS desktop companion for playing smarter, tracking honestly, and practising perfect strategy.**
 
-![icon](src-tauri/icons/128x128@2x.png)
+Watches a region of your screen, reads the cards with **your local Claude Code CLI**
+(Opus vision — no API key), and shows the **mathematically perfect play** on a
+floating, always-on-top overlay. Plus a bankroll tracker, a live session counter,
+a British butler chat guide, a customisable pixel-art companion, and a personal
+launcher for your favourite OLG casino games.
 
-## Features
+<img src="public/assets/screenshot.webp" width="420" alt="CasinoSpy screenshot" />
 
+</div>
+
+---
+
+## ✨ What's inside
+
+CasinoSpy started as a perfect-strategy overlay and grew into a full play companion.
+Here's everything it does.
+
+### 🎯 Perfect-strategy overlay
 - **Pick any screen region** with a transparent spotlight selector — your blackjack
   table or your 5-card video-poker hand.
 - **Local Claude Code OCR** — the cropped region is read by the `claude` CLI on your
@@ -18,7 +32,7 @@ blackjack (live-dealer video, digital tables, OLG/RNG video blackjack) and the f
   RNG/continuous-shuffle games), dealer hits/stands soft 17 (H17/S17),
   double-after-split, and late surrender. Correct hard/soft/pair/surrender plays with
   "can't double" fallbacks.
-- **Exact-EV video poker** for all 9 Game King titles, including true wild-card
+- **Exact-EV video poker** for all 9 IGT Game King titles, with true wild-card
   evaluation:
   - Jacks or Better, Bonus Poker, Bonus Poker Deluxe, Double Bonus,
     Double Double Bonus, Triple Double Bonus
@@ -31,69 +45,140 @@ blackjack (live-dealer video, digital tables, OLG/RNG video blackjack) and the f
 - **Two scan modes** — a Scan button + global hotkey **⌘/Ctrl + ⇧ + B**, plus an
   Auto-poll toggle for video play.
 
-## Requirements
+### 💰 Bankroll tracker
+- Log **deposits and withdrawals**; see running **Deposited / Withdrawn / Net** totals.
+- A live **net badge** in the banner stays green/red/even at a glance.
 
-- macOS, [Claude Code](https://claude.com/claude-code) installed (`claude` on PATH),
-  Node 18+, Rust (stable).
+### ⏱️ Live session counter
+- Start a session with a **buy-in**, then nudge your **current total** up/down (or type
+  it) from a draggable, always-on-top mini window.
+- Win/loss is colour-coded; **Lock in** saves the result to your **session history**.
+- The same counter is reachable from the chat window with one click.
 
-## Run it
+### 🎩 Ask Jiffrey — your casino butler
+- An in-app chat guide powered by **your local Claude Code CLI** (Sonnet).
+- Knows your **live session** (buy-in / current / win-loss) for grounded advice.
+- Plays it straight: honest about negative-EV and that **slots can't be beaten** by
+  strategy; explains correct blackjack / video-poker play; nudges toward limits and
+  breaks, and points to OLG PlaySmart when it matters.
+- Multiple saved chat threads with a history drawer.
+
+### 🐾 Pixel-art companion
+- Generate a custom **pixel-art buddy** via the [PixelLab](https://www.pixellab.ai) API
+  (your key) — idle / win / lose animations stored inline.
+- Lives bottom-right as ambient, click-through decoration that **reacts** to your
+  session and bankroll (win pop on a withdrawal/up-tick, shake on a deposit/down-tick).
+- **Customise** and **Flip** controls in the bottom nav; a full-screen **spotlight**
+  showcase with a casino backdrop, light rays, and a flipping-coin logo.
+- Jiffrey's chat avatar uses your buddy's sprite when you've made one.
+
+### 🎰 My Slots — your OLG launcher
+- **Open OLG Casino** in its own window.
+- Browse the catalogue and hit the injected **★ Add to Favourites** button — pick a
+  **category** right there (Slot / Arcade / Cards / Live).
+- Or add from inside the app: **search the live OLG catalogue** (~1000 games, scraped
+  server-side so there's no CORS) or **paste a game URL**.
+- CasinoSpy auto-grabs the **title** and **downloads a thumbnail** preview; you can
+  override the image (paste a URL or pick a file).
+- Favourites show as image tiles with a category badge. **Click a card to launch the
+  game** (real-money) in its own window; hover for the name and quick actions.
+- **Edit** any favourite — change the image, title, link, and category. **Filter** the
+  grid by category.
+
+---
+
+## 🛠️ Requirements
+
+- **macOS** (Apple Silicon builds provided)
+- [**Claude Code**](https://claude.com/claude-code) installed with `claude` on your PATH
+  (used for both card OCR and the Jiffrey chat — your subscription, **no API key**)
+- **Node 18+** and **Rust** (stable) to build
+- *(Optional)* a [**PixelLab**](https://www.pixellab.ai) API key for the pixel companion
+
+## 🚀 Run it
 
 ```bash
 npm install
 npm run tauri dev
 ```
 
-## Build a signed + notarized release
-
-With an Apple **Developer ID Application** certificate in your keychain and these
-env vars set (`APPLE_ID`, `APPLE_PASSWORD` app-specific password, `APPLE_TEAM_ID`):
+## 📦 Build a release
 
 ```bash
-export APPLE_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)"
 npm run tauri build
 ```
 
-The `.app` and `.dmg` land in `src-tauri/target/release/bundle/`.
+The `.app` and `.dmg` land in `src-tauri/target/release/bundle/`. For a signed +
+notarized build, add an Apple **Developer ID Application** certificate to your keychain
+and set the signing env vars before building:
 
-## First-time macOS permissions
+```bash
+export APPLE_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)"
+export APPLE_ID="you@example.com"
+export APPLE_PASSWORD="app-specific-password"
+export APPLE_TEAM_ID="TEAMID"
+npm run tauri build
+```
 
-CasinoSpy captures the screen, so macOS will prompt for **Screen Recording** the
-first time you scan (System Settings → Privacy & Security → Screen Recording). In
-`dev`, grant it to your Terminal/IDE; in the built app, grant it to **CasinoSpy**,
-then relaunch. The global hotkey may also need Accessibility/Input Monitoring.
+## 🔐 First-time macOS permissions
 
-## How to use
+CasinoSpy captures the screen, so macOS will prompt for **Screen Recording** the first
+time you scan (System Settings → Privacy & Security → Screen Recording). In `dev`, grant
+it to your Terminal/IDE; in the built app, grant it to **CasinoSpy**, then relaunch. The
+global hotkey may also need Accessibility / Input Monitoring.
+
+## 🎮 How to use
 
 1. Pick a **game mode** tile (Blackjack or Video Poker).
 2. Set the **rules** (blackjack: decks + soft-17/DAS/surrender) or the **Game King
    title** (video poker — match the machine's posted pay table).
 3. **Pick region** and drag a box around the whole hand.
-4. **Open overlay**, then **Scan** (or ⌘/Ctrl+⇧+B), or toggle **Auto**. Keep the
-   overlay *outside* the captured region so it isn't read.
+4. **Open overlay**, then **Scan** (or ⌘/Ctrl+⇧+B), or toggle **Auto**. Keep the overlay
+   *outside* the captured region so it isn't read.
+5. Optionally: track your **bankroll**, start a **session**, ask **Jiffrey** for advice,
+   make a **pixel buddy**, and build your **My Slots** launcher.
 
-## Project layout
+## 🗂️ Project layout
 
 ```
-index.html / src/main.js        Control panel
-overlay.html / src/overlay.js   Floating strategy overlay
-selector.html / src/selector.js Screen-region picker
-src/strategy.js                 Configurable blackjack basic-strategy engine
-src/videopoker.js               Game King video-poker exact-EV solver (wild-aware)
-src/scan.js                     Parses Claude's JSON response
-src-tauri/src/lib.rs            Rust: screen capture (xcap), Claude CLI, windows, hotkey
+index.html / src/main.js          Control panel + companion + slots wiring
+overlay.html / src/overlay.js     Floating strategy overlay
+selector.html / src/selector.js   Screen-region picker
+session.html / src/session-*.js   Live session counter window
+chat.html  / src/chat.js          Ask Jiffrey butler chat
+src/strategy.js                   Configurable blackjack basic-strategy engine
+src/videopoker.js                 Game King video-poker exact-EV solver (wild-aware)
+src/scan.js                       Parses Claude's JSON response
+src/buddy.js / src/buddy-setup.js Pixel-art companion (PixelLab) + setup modal
+src/pixellab.js                   PixelLab API client
+src/slots.js                      My Slots favourites + OLG catalogue picker
+src/settings.js                   Shared localStorage settings
+src-tauri/src/lib.rs              Rust: screen capture (xcap), Claude CLI, windows,
+                                  hotkey, OLG scraping (ureq), image thumbs
 ```
 
-## How it reads cards
+## 🔎 How it works
 
-The Rust backend captures the selected region with [`xcap`](https://crates.io/crates/xcap),
-writes a temp PNG, and runs the local Claude Code CLI headlessly
-(`claude -p … --allowedTools Read --model opus`) to return strict JSON describing the
-cards. The strategy/EV engines are pure JavaScript and run instantly client-side.
+- **Card reading** — the Rust backend captures the selected region with
+  [`xcap`](https://crates.io/crates/xcap), writes a temp PNG, and runs the local Claude
+  Code CLI headlessly (`claude -p … --allowedTools Read --model opus`) to return strict
+  JSON describing the cards. The strategy/EV engines are pure JavaScript and run
+  instantly client-side.
+- **OLG slots** — the catalogue and individual game pages are fetched **server-side in
+  Rust** (`ureq`) to avoid CORS; titles come from `og:title`, preview images are
+  downloaded and re-encoded to small JPEG thumbnails. The catalogue window injects a
+  small "★ Add to Favourites" button that emits the pick back to the app over Tauri's
+  event bus (a remote capability scoped to `olg.ca`).
+- **Everything persists** in `localStorage` (shared across all windows on the same
+  origin): rules, region, ledger, session + history, chats, buddy, and slots.
 
-## Legal / responsible use
+## ⚖️ Legal / responsible use
 
-For educational and strategy-practice purposes. Many casinos and online operators
-prohibit real-time assistance tools — use only where permitted and at your own risk.
+For educational and strategy-practice purposes. Casino games are **negative expected
+value**, and **slots are pure RNG** — no tool or system changes their odds. Many casinos
+and online operators prohibit real-time assistance tools — use only where permitted and
+at your own risk. Set limits, take breaks, and see
+[OLG PlaySmart](https://www.playsmart.ca) if play stops being fun.
 
 ## License
 

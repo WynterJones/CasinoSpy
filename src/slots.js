@@ -81,7 +81,7 @@ function renderGrid() {
     };
     card.querySelector(".slot-edit-btn").onclick = (e) => {
       e.stopPropagation();
-      pickImageFor(i);
+      openEdit(i);
     };
     grid.appendChild(card);
   });
@@ -97,25 +97,6 @@ function renderGrid() {
   }
 }
 
-// Click the edit pencil to set/replace a card's image from a local file.
-function pickImageFor(i) {
-  const inp = document.createElement("input");
-  inp.type = "file";
-  inp.accept = "image/*";
-  inp.onchange = async () => {
-    const f = inp.files && inp.files[0];
-    if (!f) return;
-    const data = await fileToDataUri(f);
-    const arr = loadSlots();
-    if (arr[i]) {
-      arr[i].img = data;
-      saveSlots(arr);
-      renderGrid();
-    }
-  };
-  inp.click();
-}
-
 function addSlot(name, url, img, cat) {
   const clean = cleanUrl(url);
   const arr = loadSlots();
@@ -126,11 +107,11 @@ function addSlot(name, url, img, cat) {
   return true;
 }
 
-// ---------- add-slot modal ----------
+// ---------- add / edit modal ----------
 let gamesCache = null;
-let chosen = null; // { name, url }
 let pickedImg = "";
 let chosenCat = "Slot";
+let editIndex = null; // null = adding, otherwise the slot being edited
 
 function openModal() {
   $("slotModal").hidden = false;
@@ -148,39 +129,70 @@ function showPick() {
   $("smSearch").value = "";
   $("smUrl").value = "";
 }
-function showConfig() {
-  $("smPick").hidden = true;
-  $("smConfig").hidden = false;
-  $("smTitle").textContent = "Customise";
-  $("smChosenName").textContent = chosen.name;
+function setMsg(text) {
+  const m = $("smMsg");
+  m.hidden = !text;
+  m.textContent = text || "";
+}
+
+// Open the config step for adding a freshly-picked game (auto-fills title + image).
+function showConfig(name, url) {
+  editIndex = null;
   pickedImg = "";
   chosenCat = "Slot";
-  syncCatButtons();
-  $("smImgUrl").value = "";
-  $("smFile").value = "";
+  openConfigUI("Add a slot", "Add slot", true);
+  $("smName").value = name || slugName(url);
+  $("smLink").value = url;
   renderThumb(true);
-  // Auto-grab name + preview image from the game page (user can override).
-  invoke("fetch_olg_game", { url: chosen.url })
+  invoke("fetch_olg_game", { url })
     .then((d) => {
       if ($("smConfig").hidden) return;
-      if (d && d.name) { chosen.name = d.name; $("smChosenName").textContent = d.name; }
+      if (d && d.name) $("smName").value = d.name;
       if (d && d.img && !pickedImg) pickedImg = d.img;
       renderThumb();
     })
     .catch(() => renderThumb());
 }
+
+// Open the config step to edit an existing favourite.
+function openEdit(i) {
+  const slot = loadSlots()[i];
+  if (!slot) return;
+  editIndex = i;
+  pickedImg = slot.img || "";
+  chosenCat = slot.cat || "Slot";
+  $("slotModal").hidden = false;
+  openConfigUI("Edit slot", "Save changes", false);
+  $("smName").value = slot.name;
+  $("smLink").value = slot.url;
+  renderThumb();
+}
+
+function openConfigUI(title, saveLabel, showBack) {
+  $("smPick").hidden = true;
+  $("smConfig").hidden = false;
+  $("smTitle").textContent = title;
+  $("smSave").textContent = saveLabel;
+  $("smBack").hidden = !showBack;
+  $("smImgUrl").value = "";
+  $("smFile").value = "";
+  setMsg("");
+  syncCatButtons();
+}
+
 function syncCatButtons() {
   document.querySelectorAll("#smCats .sm-cat").forEach((b) => {
     b.classList.toggle("active", b.dataset.cat === chosenCat);
   });
 }
 function renderThumb(loading) {
+  const letter = ($("smName").value || "?").slice(0, 1).toUpperCase();
   if (pickedImg) {
     $("smThumb").innerHTML = `<img src="${esc(pickedImg)}" alt="" />`;
   } else if (loading) {
     $("smThumb").innerHTML = `<span class="sm-spin"></span>`;
   } else {
-    $("smThumb").innerHTML = `<span>${esc(chosen.name.slice(0, 1).toUpperCase())}</span>`;
+    $("smThumb").innerHTML = `<span>${esc(letter)}</span>`;
   }
 }
 
@@ -217,7 +229,7 @@ function renderResults(q) {
     const li = document.createElement("li");
     li.className = "sm-result";
     li.textContent = g.name;
-    li.onclick = () => { chosen = { name: g.name, url: g.url }; showConfig(); };
+    li.onclick = () => showConfig(g.name, g.url);
     ul.appendChild(li);
   }
 }
@@ -247,8 +259,7 @@ export function initSlots() {
     const clean = cleanUrl($("smUrl").value);
     if (!isGameUrl(clean)) { $("smStatus").hidden = false; $("smStatus").textContent = "That doesn't look like an OLG game URL."; return; }
     if (loadSlots().some((s) => s.url === clean)) { $("smStatus").hidden = false; $("smStatus").textContent = "Already in your slots."; return; }
-    chosen = { name: slugName(clean), url: clean };
-    showConfig();
+    showConfig(slugName(clean), clean);
   });
   $("smUrl").addEventListener("keydown", (e) => { if (e.key === "Enter") $("smUrlGo").click(); });
 
@@ -265,6 +276,7 @@ export function initSlots() {
     });
   });
 
+  $("smName").addEventListener("input", () => { if (!pickedImg) renderThumb(); });
   $("smImgUrl").addEventListener("input", (e) => { pickedImg = e.target.value.trim(); renderThumb(); });
   $("smFileBtn").addEventListener("click", () => $("smFile").click());
   $("smFile").addEventListener("change", async (e) => {
@@ -275,23 +287,37 @@ export function initSlots() {
     renderThumb();
   });
   $("smSave").addEventListener("click", () => {
-    if (!chosen) return;
-    addSlot(chosen.name, chosen.url, pickedImg, chosenCat);
-    closeModal();
+    const name = $("smName").value.trim();
+    const url = cleanUrl($("smLink").value);
+    if (!isGameUrl(url)) { setMsg("Enter a valid OLG game URL (…/casino/play-….html)."); return; }
+    const arr = loadSlots();
+    if (editIndex != null) {
+      if (arr.some((s, j) => j !== editIndex && s.url === url)) { setMsg("Another slot already uses that link."); return; }
+      arr[editIndex] = { name: name || slugName(url), url, img: pickedImg || "", cat: chosenCat };
+      saveSlots(arr);
+      renderGrid();
+      closeModal();
+    } else {
+      if (arr.some((s) => s.url === url)) { setMsg("Already in your slots."); return; }
+      addSlot(name, url, pickedImg, chosenCat);
+      closeModal();
+    }
   });
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !$("slotModal").hidden) closeModal();
   });
 
-  // The OLG window's injected "★ Add to Favourites" button emits this.
+  // The OLG window's injected "★ Add to Favourites" button emits this (with the
+  // category the user picked from its menu).
   listen("olg-add-fav", async (e) => {
     const url = cleanUrl((e.payload && e.payload.url) || "");
+    const cat = (e.payload && e.payload.cat) || "Slot";
     if (!isGameUrl(url) || loadSlots().some((s) => s.url === url)) return;
     let name = "", img = "";
     try {
       const d = await invoke("fetch_olg_game", { url });
       name = d.name || ""; img = d.img || "";
     } catch (err) { /* fall back to slug name */ }
-    addSlot(name, url, img, "Slot");
+    addSlot(name, url, img, cat);
   });
 }

@@ -457,13 +457,32 @@ const OLG_FAV_SCRIPT: &str = r#"
     t.style.cssText='position:fixed;left:50%;bottom:86px;transform:translateX(-50%);z-index:2147483647;background:rgba(8,30,21,.97);color:#fff6db;border:1px solid #f2c94c;padding:9px 16px;border-radius:999px;font:700 13px system-ui;box-shadow:0 10px 26px rgba(0,0,0,.5)';
     document.body.appendChild(t); setTimeout(function(){ t.remove(); },1900);
   }
-  function emitFav(){
-    var payload={url:location.href,name:gameName()};
+  var CATS=['Slot','Arcade','Cards','Live'];
+  function emitFav(cat){
+    var payload={url:location.href,name:gameName(),cat:cat};
     try{ if(window.__TAURI__&&window.__TAURI__.event&&window.__TAURI__.event.emit){ window.__TAURI__.event.emit('olg-add-fav',payload); return true; } }catch(e){}
     try{ if(window.__TAURI_INTERNALS__&&window.__TAURI_INTERNALS__.invoke){ window.__TAURI_INTERNALS__.invoke('plugin:event|emit',{event:'olg-add-fav',payload:payload}); return true; } }catch(e){}
     return false;
   }
-  function sync(){ var b=document.getElementById('cspy-fav'); if(b) b.style.display=onPlay()?'flex':'none'; }
+  var menu=null;
+  function closeMenu(){ if(menu){ menu.remove(); menu=null; } }
+  function openMenu(){
+    closeMenu();
+    menu=document.createElement('div');
+    menu.style.cssText='position:fixed;right:18px;bottom:66px;z-index:2147483647;display:flex;flex-direction:column;gap:6px;background:rgba(8,30,21,.98);border:1px solid #f2c94c;border-radius:14px;padding:8px;box-shadow:0 14px 32px rgba(0,0,0,.55)';
+    var h=document.createElement('div'); h.textContent='Add as…'; h.style.cssText='color:#b8c8b7;font:800 10px system-ui;letter-spacing:1px;text-transform:uppercase;padding:2px 6px 4px';
+    menu.appendChild(h);
+    CATS.forEach(function(c){
+      var o=document.createElement('button'); o.textContent=c;
+      o.style.cssText='text-align:left;background:rgba(0,0,0,.3);color:#ffe49a;border:1px solid rgba(255,226,142,.3);border-radius:9px;padding:9px 16px;font:800 13px system-ui;cursor:pointer';
+      o.onmouseenter=function(){ o.style.background='linear-gradient(180deg,#f6d26a,#d9a93a)'; o.style.color='#2a1d04'; };
+      o.onmouseleave=function(){ o.style.background='rgba(0,0,0,.3)'; o.style.color='#ffe49a'; };
+      o.onclick=function(ev){ ev.stopPropagation(); closeMenu(); if(emitFav(c)) toast('✓ Added to '+c); else toast('Could not add — try again'); };
+      menu.appendChild(o);
+    });
+    document.body.appendChild(menu);
+  }
+  function sync(){ var b=document.getElementById('cspy-fav'); if(b) b.style.display=onPlay()?'flex':'none'; if(!onPlay()) closeMenu(); }
   function mk(){
     if(document.getElementById('cspy-fav')) return;
     var b=document.createElement('button'); b.id='cspy-fav';
@@ -471,9 +490,10 @@ const OLG_FAV_SCRIPT: &str = r#"
     b.style.cssText='position:fixed;right:18px;bottom:18px;z-index:2147483647;align-items:center;gap:8px;background:linear-gradient(180deg,#f6d26a,#d9a93a);color:#2a1d04;border:1px solid rgba(255,255,255,.4);padding:12px 18px;border-radius:999px;font:800 14px system-ui;cursor:pointer;box-shadow:0 10px 26px rgba(0,0,0,.5)';
     b.onmouseenter=function(){ b.style.filter='brightness(1.06)'; };
     b.onmouseleave=function(){ b.style.filter='none'; };
-    b.onclick=function(){ if(emitFav()) toast('✓ Added to CasinoSpy favourites'); else toast('Could not add — try again'); };
+    b.onclick=function(ev){ ev.stopPropagation(); if(menu) closeMenu(); else openMenu(); };
     document.body.appendChild(b); sync();
   }
+  document.addEventListener('click', function(){ closeMenu(); });
   function boot(){ mk(); }
   if(document.body) boot(); else document.addEventListener('DOMContentLoaded', boot);
   window.addEventListener('hashchange', sync);

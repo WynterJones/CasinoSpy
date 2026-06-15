@@ -85,19 +85,6 @@
         </div>
       </details>
 
-      <!-- Baccarat reference -->
-      <details class="collapse" id="baccaratCard">
-        <summary><span class="ic">C</span> Baccarat &mdash; best bets</summary>
-        <div class="collapse-body">
-          <div class="bac-bets">
-            <div class="bac-bet best"><span class="bac-name">Banker</span><span class="bac-edge">1.06% house edge</span><span class="bac-tag">BEST</span></div>
-            <div class="bac-bet"><span class="bac-name">Player</span><span class="bac-edge">1.24% house edge</span></div>
-            <div class="bac-bet avoid"><span class="bac-name">Tie</span><span class="bac-edge">~14.4% house edge</span><span class="bac-tag">AVOID</span></div>
-          </div>
-          <div class="hint">Baccarat has <b>no in-hand decisions</b> &mdash; cards draw by fixed rules. Your only choice is the bet: <b>always Banker</b> (lowest edge, even after the ~5% commission on wins). Skip Tie and side bets. Your session tracker and Jiffrey work here too.</div>
-        </div>
-      </details>
-
       <!-- Live session -->
       <details class="collapse" id="sessionCard">
         <summary><span class="ic">$</span> Session <span class="bk-net-chip even" id="sessChip">Off</span></summary>
@@ -204,11 +191,16 @@
             <div class="sm-status" id="smStatus">Loading OLG catalogue…</div>
             <ul class="sm-results" id="smResults"></ul>
           </div>
-          <!-- Step 2: choose an image + confirm -->
+          <!-- Step 2: title / link / category / image -->
           <div id="smConfig" hidden>
             <div class="sm-chosen">
               <div class="sm-thumb" id="smThumb"></div>
-              <div class="sm-chosen-name" id="smChosenName"></div>
+              <div class="sm-fields">
+                <label class="sm-label">Title</label>
+                <input class="sm-field" id="smName" placeholder="Game title" />
+                <label class="sm-label">Link</label>
+                <input class="sm-field" id="smLink" type="url" placeholder="https://www.olg.ca/en/casino/play-….html" />
+              </div>
             </div>
             <label class="sm-label">Category</label>
             <div class="sm-cats" id="smCats">
@@ -223,6 +215,7 @@
               <button class="sm-file-btn" id="smFileBtn" type="button">Choose file</button>
               <input id="smFile" type="file" accept="image/*" hidden />
             </div>
+            <div class="sm-msg" id="smMsg" hidden></div>
             <div class="sm-actions">
               <button class="sm-back" id="smBack" type="button">‹ Back</button>
               <button class="sm-save accent" id="smSave" type="button">Add slot</button>
