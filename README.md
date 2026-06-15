@@ -4,13 +4,19 @@
 
 # ♠ CasinoSpy
 
-**A macOS desktop companion for playing smarter, tracking honestly, and practising perfect strategy.**
+**Your casino sidekick for smarter play — strategy aid, honest tracking, and a friendly guide.**
 
-Watches a region of your screen, reads the cards with **your local Claude Code CLI**
-(Opus vision — no API key), and shows the **mathematically perfect play** on a
-floating, always-on-top overlay. Plus a bankroll tracker, a live session counter,
-a British butler chat guide, a customisable pixel-art companion, and a personal
-launcher for your favourite OLG casino games.
+A macOS desktop companion that helps you play smarter and stay in control. It can
+watch a region of your screen and read the cards with **your local Claude Code CLI**
+(Opus vision — no API key) to suggest the strongest play on a floating overlay, plus a
+bankroll tracker, a live session counter, a British butler chat guide, a customisable
+pixel-art companion, and a personal launcher for your favourite casino games.
+
+> **🍁 Heads-up on the games launcher:** the "My Slots" feature is wired to
+> **[OLG](https://www.olg.ca) — Ontario, Canada's** regulated online casino. If you're
+> outside Ontario or prefer another operator, **fork this repo** and point the catalogue
+> URL + scraper at your preferred site (see [Using a different casino](#-using-a-different-casino)).
+> Everything else (overlay, bankroll, session, chat, companion) is operator-agnostic.
 
 <img src="public/assets/screenshot.webp" width="420" alt="CasinoSpy screenshot" />
 
@@ -171,6 +177,25 @@ src-tauri/src/lib.rs              Rust: screen capture (xcap), Claude CLI, windo
   event bus (a remote capability scoped to `olg.ca`).
 - **Everything persists** in `localStorage` (shared across all windows on the same
   origin): rules, region, ledger, session + history, chats, buddy, and slots.
+
+## 🌍 Using a different casino
+
+The **My Slots** launcher targets **OLG (Ontario, Canada)** — its catalogue is
+server-rendered and exposes demo/real play links, which makes it easy to scrape and
+launch. If you're outside Ontario or want another operator:
+
+1. **Fork this repo.**
+2. In `src-tauri/src/lib.rs`, update the scrapers to your site: the catalogue URL +
+   link pattern in `fetch_olg_games`, the title/image meta in `fetch_olg_game`, and the
+   injected catalogue button in `OLG_FAV_SCRIPT` (the `olg.ca` host check + the
+   "All Casinos" / "Add to Favourites" buttons).
+3. In `src/slots.js`, change the `CATALOG` URL and the `#/demo` / `#/real` launch
+   pattern to match how your operator opens games.
+4. In `src-tauri/capabilities/remote.json`, swap the `olg.ca` remote URL for your host
+   so the in-page button can talk to the app.
+
+Everything else — the strategy overlay, bankroll, session counter, Jiffrey chat, and
+the pixel companion — is operator-agnostic and needs no changes.
 
 ## ⚖️ Legal / responsible use
 

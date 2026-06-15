@@ -8,7 +8,7 @@ import { createBuddyStage } from "./buddy.js";
 const $ = (id) => document.getElementById(id);
 const win = getCurrentWindow();
 
-const buddy = createBuddyStage($("sessBuddy"), { size: 150, reactMs: 2000 });
+const buddy = createBuddyStage($("sessBuddy"), { size: 220, reactMs: 2000 });
 
 function renderHist() {
   const wrap = $("oHist");

@@ -389,10 +389,17 @@ fn download_thumb(url: &str) -> Option<String> {
         .read_to_end(&mut bytes)
         .ok()?;
     let img = image::load_from_memory(&bytes).ok()?;
-    // Flatten to RGB — JPEG can't carry an alpha channel.
-    let thumb = image::DynamicImage::ImageRgb8(img.thumbnail(360, 360).to_rgb8());
+    // Preserve the (usually landscape) aspect ratio; only shrink very large art,
+    // never upscale small thumbnails. Flatten to RGB — JPEG can't carry alpha.
+    let scaled = if img.width() > 900 {
+        img.thumbnail(900, 900)
+    } else {
+        img
+    };
+    let rgb = image::DynamicImage::ImageRgb8(scaled.to_rgb8());
     let mut out = std::io::Cursor::new(Vec::new());
-    thumb.write_to(&mut out, image::ImageFormat::Jpeg).ok()?;
+    let mut enc = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, 92);
+    enc.encode_image(&rgb).ok()?;
     use base64::Engine;
     let b64 = base64::engine::general_purpose::STANDARD.encode(out.get_ref());
     Some(format!("data:image/jpeg;base64,{b64}"))
@@ -482,9 +489,24 @@ const OLG_FAV_SCRIPT: &str = r#"
     });
     document.body.appendChild(menu);
   }
-  function sync(){ var b=document.getElementById('cspy-fav'); if(b) b.style.display=onPlay()?'flex':'none'; if(!onPlay()) closeMenu(); }
+  var CAT='https://www.olg.ca/en/casino/all-casino-games.html';
+  function onCat(){ return /all-casino-games/.test(location.pathname); }
+  function sync(){
+    var b=document.getElementById('cspy-fav'); if(b) b.style.display=onPlay()?'flex':'none';
+    var k=document.getElementById('cspy-back'); if(k) k.style.display=onCat()?'none':'flex';
+    if(!onPlay()) closeMenu();
+  }
   function mk(){
-    if(document.getElementById('cspy-fav')) return;
+    if(!document.getElementById('cspy-back')){
+      var k=document.createElement('button'); k.id='cspy-back';
+      k.innerHTML='‹ All Casinos';
+      k.style.cssText='position:fixed;left:18px;bottom:18px;z-index:2147483647;align-items:center;gap:8px;background:rgba(8,30,21,.96);color:#fff6db;border:1px solid #f2c94c;padding:12px 18px;border-radius:999px;font:800 14px system-ui;cursor:pointer;box-shadow:0 10px 26px rgba(0,0,0,.5)';
+      k.onmouseenter=function(){ k.style.filter='brightness(1.12)'; };
+      k.onmouseleave=function(){ k.style.filter='none'; };
+      k.onclick=function(ev){ ev.stopPropagation(); location.href=CAT; };
+      document.body.appendChild(k);
+    }
+    if(document.getElementById('cspy-fav')) { sync(); return; }
     var b=document.createElement('button'); b.id='cspy-fav';
     b.innerHTML='★ Add to Favourites';
     b.style.cssText='position:fixed;right:18px;bottom:18px;z-index:2147483647;align-items:center;gap:8px;background:linear-gradient(180deg,#f6d26a,#d9a93a);color:#2a1d04;border:1px solid rgba(255,255,255,.4);padding:12px 18px;border-radius:999px;font:800 14px system-ui;cursor:pointer;box-shadow:0 10px 26px rgba(0,0,0,.5)';
