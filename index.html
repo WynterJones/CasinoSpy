@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CasinoSpy — Strategy Overlay</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div class="app" data-tauri-drag-region>
+      <header class="brand-header" data-tauri-drag-region>
+        <div class="brand-inner">
+          <img class="brand-chip" src="/assets/casinospy-poker-chip.png" alt="" />
+          <div class="brand-text">
+            <h1>CasinoSpy</h1>
+            <p class="subtitle">Perfect blackjack &amp; video-poker strategy.</p>
+          </div>
+        </div>
+        <div class="brand-shine"></div>
+      </header>
+
+      <!-- Game mode picker -->
+      <div class="mode-tiles">
+        <button type="button" class="mode-tile" data-mode="blackjack">
+          <img src="/assets/mode-blackjack.png" alt="Blackjack" />
+          <span class="mode-check">✓</span>
+          <span class="mode-name">Blackjack</span>
+        </button>
+        <button type="button" class="mode-tile" data-mode="videopoker">
+          <img src="/assets/mode-videopoker.png" alt="Video Poker" />
+          <span class="mode-check">✓</span>
+          <span class="mode-name">Video Poker</span>
+        </button>
+      </div>
+
+      <!-- Blackjack rules (collapsible) -->
+      <details class="collapse" id="bjRules" open>
+        <summary><span class="ic">♠</span> Blackjack rules</summary>
+        <div class="collapse-body">
+          <div class="row">
+            <label for="decks">Decks</label>
+            <div class="control">
+              <select id="decks">
+                <option value="1">1 deck</option>
+                <option value="2">2 decks</option>
+                <option value="4">4 decks</option>
+                <option value="6" selected>6 decks</option>
+                <option value="8">8 decks</option>
+                <option value="unlimited">Unlimited (RNG / continuous shuffle)</option>
+              </select>
+            </div>
+          </div>
+          <div class="toggles">
+            <label class="switch">
+              <span class="switch-label">Dealer hits soft 17</span>
+              <input type="checkbox" id="h17" /><span class="track"></span>
+            </label>
+            <label class="switch">
+              <span class="switch-label">Double after split</span>
+              <input type="checkbox" id="das" checked /><span class="track"></span>
+            </label>
+            <label class="switch">
+              <span class="switch-label">Late surrender</span>
+              <input type="checkbox" id="surrender" checked /><span class="track"></span>
+            </label>
+          </div>
+          <div class="hint">OLG / RNG video blackjack effectively uses an unlimited shoe — pick <b>Unlimited</b> and match the soft-17 rule.</div>
+        </div>
+      </details>
+
+      <!-- Video poker pay table (collapsible) -->
+      <details class="collapse" id="vpRules" open hidden>
+        <summary><span class="ic">◆</span> Video poker pay table</summary>
+        <div class="collapse-body">
+          <div class="row">
+            <label for="vpPaytable">Game King title</label>
+            <div class="control">
+              <select id="vpPaytable">
+                <option value="job_96">Jacks or Better (9/6)</option>
+                <option value="bonus_85">Bonus Poker (8/5)</option>
+                <option value="bpd_96">Bonus Poker Deluxe (9/6)</option>
+                <option value="db_975">Double Bonus (9/7/5)</option>
+                <option value="ddb_96">Double Double Bonus (9/6)</option>
+                <option value="tdb_96">Triple Double Bonus (9/6)</option>
+                <option value="deuces">Deuces Wild</option>
+                <option value="deuces_bonus">Deuces Wild Bonus</option>
+                <option value="joker_kings">Joker Poker (Kings or Better)</option>
+              </select>
+            </div>
+          </div>
+          <div class="hint">Exact max-EV hold for the selected Game King title (incl. Deuces &amp; Joker wilds). Match it to the machine's posted pay table.</div>
+        </div>
+      </details>
+
+    </div>
+
+    <!-- Fixed action dock -->
+    <div class="dock">
+      <div class="dock-actions">
+        <button id="pickRegion" class="accent"><span class="btn-icon">◎</span> Pick region <span class="region-status" id="regionStatus">✗</span></button>
+        <button id="launchOverlay" class="primary"><span class="btn-icon">♠</span> Open overlay</button>
+      </div>
+      <div id="status" class="status"></div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

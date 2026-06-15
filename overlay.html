@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en" class="doc-clear">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CasinoSpy Overlay</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body class="overlay-body">
+    <div class="overlay">
+      <div class="overlay-drag" data-tauri-drag-region>
+        <span class="title"><img src="/assets/casinospy-poker-chip.png" alt="" /> CasinoSpy</span>
+        <span class="dot" id="statusDot">●</span>
+        <button id="closeOverlay" title="Close">✕</button>
+      </div>
+
+      <div class="overlay-body-inner">
+        <div id="move" class="move WAIT">READY</div>
+        <div id="moveReason" class="move-reason">Press Scan or ⌘/Ctrl+⇧+B</div>
+
+        <!-- Blackjack view -->
+        <div class="bj-view" id="bjView">
+          <div class="bj-grp">
+            <div class="bj-lbl">YOU <span class="total-badge" id="playerTotal"></span></div>
+            <div class="pcards" id="playerCards"></div>
+          </div>
+          <div class="bj-grp">
+            <div class="bj-lbl">DEALER</div>
+            <div class="pcards" id="dealerCards"></div>
+          </div>
+        </div>
+
+        <!-- Video poker view -->
+        <div class="vp-view" id="vpView" style="display:none">
+          <div class="pcards vp" id="vpCards"></div>
+        </div>
+
+        <!-- Confidence meter -->
+        <div class="conf" id="confWrap" style="visibility:hidden">
+          <div class="conf-row">
+            <span class="conf-lbl">Confidence</span>
+            <span class="conf-pct" id="confPct">—</span>
+          </div>
+          <div class="conf-bar"><div class="conf-fill" id="confFill"></div></div>
+          <div class="conf-note" id="confNote"></div>
+        </div>
+
+        <div class="overlay-controls">
+          <button id="scanBtn" class="primary"><span class="btn-icon">◎</span> Scan</button>
+          <button id="autoBtn" class="toggle"><span class="btn-icon">◈</span> Auto: Off</button>
+        </div>
+      </div>
+
+      <!-- Full-window scan progress -->
+      <div class="scan-progress" id="scanProgress" hidden>
+        <div class="sp-spinner"></div>
+        <div class="sp-title" id="spTitle">Reading hand…</div>
+        <ul class="sp-steps">
+          <li class="sp-step" data-step="capturing"><span class="sp-ic"></span> Capturing screen</li>
+          <li class="sp-step" data-step="reading"><span class="sp-ic"></span> Reading cards (Opus)</li>
+          <li class="sp-step" data-step="analyzing"><span class="sp-ic"></span> Analyzing strategy</li>
+        </ul>
+      </div>
+    </div>
+    <script type="module" src="/src/overlay.js"></script>
+  </body>
+</html>
