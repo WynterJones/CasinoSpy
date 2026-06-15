@@ -4,9 +4,13 @@ import sharp from "sharp";
 import { writeFileSync } from "node:fs";
 
 const SIZE = 1024;
-const PAD = 40;            // transparent margin around the rounded tile
-const R = 200;             // corner radius
-const BORDER = 18;         // gold border thickness
+// macOS draws app icons inside a ~80% "safe area" with transparent margin around
+// the rounded tile; filling the whole canvas makes the icon look clipped in the
+// Dock/Finder. Keep the tile ~816px (inset ~104px) with a continuous-corner radius
+// (~22% of the tile) so it reads as a proper rounded macOS icon.
+const PAD = 104;           // transparent margin around the rounded tile
+const R = 182;             // corner radius (~0.223 * inner)
+const BORDER = 16;         // gold border thickness
 const inner = SIZE - PAD * 2;
 
 const src = "public/assets/casinospy-poker-chip.png";

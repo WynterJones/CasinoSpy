@@ -1,6 +1,6 @@
 [package]
 name = "casinospy"
-version = "0.5.0"
+version = "0.7.0"
 description = "Screen-OCR blackjack perfect-strategy overlay"
 authors = ["you"]
 edition = "2021"

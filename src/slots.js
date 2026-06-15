@@ -48,37 +48,85 @@ function playReal(slot) {
 
 // ---------- favourites grid ----------
 let filter = "all";
+let sortByBet = false; // when true, order cheapest-min-bet first
+let query = ""; // search text (matches slot name)
+
+// Parse a stored min-bet string ("$0.10", "0.25", "") into a number for sorting.
+// Slots with no min bet sort to the bottom.
+function betValue(slot) {
+  const m = String(slot.minBet || "").match(/[0-9]+(?:\.[0-9]+)?/);
+  return m ? parseFloat(m[0]) : Infinity;
+}
 
 function renderGrid() {
   const grid = $("slotsGrid");
   const slots = loadSlots();
   $("slotsMeta").textContent = slots.length ? `${slots.length}` : "";
   grid.innerHTML = "";
+  // Keep original indices so edit/remove still target the right slot after sorting.
+  let entries = slots.map((slot, i) => ({ slot, i }));
+  if (sortByBet) entries = entries.slice().sort((a, b) => betValue(a.slot) - betValue(b.slot));
+  // Favourites always pinned to the front (stable within each group).
+  entries = entries.slice().sort((a, b) => (b.slot.fav ? 1 : 0) - (a.slot.fav ? 1 : 0));
+  const q = query.trim().toLowerCase();
   let shown = 0;
-  slots.forEach((slot, i) => {
-    if (filter !== "all" && (slot.cat || "Slot") !== filter) return;
+  entries.forEach(({ slot, i }) => {
+    if (filter === "fav") { if (!slot.fav) return; }
+    else if (filter !== "all" && (slot.cat || "Slot") !== filter) return;
+    if (q && !(slot.name || "").toLowerCase().includes(q)) return;
     shown++;
     const card = document.createElement("div");
     card.className = "slot-card";
     const thumb = slot.img
       ? `<img src="${esc(slot.img)}" alt="" />`
       : `<span class="slot-ph">${esc(slot.name.slice(0, 1).toUpperCase())}</span>`;
+    const coin = slot.minBet
+      ? `<span class="slot-coin" title="Min bet ${esc(slot.minBet)}"><span class="coin-ic">¢</span>${esc(slot.minBet)}</span>`
+      : "";
+    const tags = [];
+    if (slot.rtp) tags.push(`<span class="slot-tag rtp">RTP ${esc(slot.rtp)}</span>`);
+    if (slot.bonus) tags.push(`<span class="slot-tag bonus">★ Bonus</span>`);
+    if (slot.freeSpins) tags.push(`<span class="slot-tag spins">↻ Free spins</span>`);
+    const tagRow = tags.length ? `<div class="slot-tags">${tags.join("")}</div>` : "";
     card.innerHTML = `
       ${thumb}
       <span class="slot-cat">${esc(slot.cat || "Slot")}</span>
+      <button class="slot-fav${slot.fav ? " on" : ""}" title="${slot.fav ? "Unfavourite" : "Favourite"}">${slot.fav ? "★" : "☆"}</button>
+      ${coin}
       <div class="slot-hover">
         <button class="slot-del" title="Remove">&times;</button>
         <button class="slot-edit-btn" title="Set image">&#9998;</button>
         <span class="slot-tip">${esc(slot.name)}</span>
+        ${tagRow}
       </div>`;
     card.onclick = () => playReal(slot);
-    card.querySelector(".slot-del").onclick = (e) => {
+    // Star toggles favourite (pins to front, survives reload).
+    card.querySelector(".slot-fav").onclick = (e) => {
       e.stopPropagation();
+      const arr = loadSlots();
+      arr[i] = { ...arr[i], fav: !arr[i].fav };
+      saveSlots(arr);
+      renderGrid();
+    };
+    // Two-step delete: first click arms the button (turns red), second removes.
+    const del = card.querySelector(".slot-del");
+    del.onclick = (e) => {
+      e.stopPropagation();
+      if (!del.classList.contains("armed")) {
+        del.classList.add("armed");
+        del.title = "Click again to remove";
+        return;
+      }
       const arr = loadSlots();
       arr.splice(i, 1);
       saveSlots(arr);
       renderGrid();
     };
+    // Leaving the card disarms a half-pressed delete.
+    card.addEventListener("mouseleave", () => {
+      del.classList.remove("armed");
+      del.title = "Remove";
+    });
     card.querySelector(".slot-edit-btn").onclick = (e) => {
       e.stopPropagation();
       openEdit(i);
@@ -91,17 +139,29 @@ function renderGrid() {
     empty.innerHTML = "No slots yet. Tap <b>+ Add slot</b> to pick from OLG's catalogue.";
   } else if (!shown) {
     empty.hidden = false;
-    empty.textContent = `No ${filter} games saved.`;
+    empty.textContent = q
+      ? `No slots match “${query.trim()}”.`
+      : filter === "fav" ? "No favourites yet — tap ☆ on a slot."
+      : `No ${filter} games saved.`;
   } else {
     empty.hidden = true;
   }
 }
 
-function addSlot(name, url, img, cat) {
+function addSlot(name, url, img, cat, extra = {}) {
   const clean = cleanUrl(url);
   const arr = loadSlots();
   if (arr.some((s) => s.url === clean)) return false; // already saved
-  arr.push({ name: name || slugName(clean), url: clean, img: img || "", cat: cat || "Slot" });
+  arr.push({
+    name: name || slugName(clean),
+    url: clean,
+    img: img || "",
+    cat: cat || "Slot",
+    minBet: extra.minBet || "",
+    rtp: extra.rtp || "",
+    bonus: !!extra.bonus,
+    freeSpins: !!extra.freeSpins,
+  });
   saveSlots(arr);
   renderGrid();
   return true;
@@ -135,7 +195,8 @@ function setMsg(text) {
   m.textContent = text || "";
 }
 
-// Open the config step for adding a freshly-picked game (auto-fills title + image).
+// Open the config step for adding a freshly-picked game (auto-fills title + image
+// + best-effort min bet / bonus / free-spins flags scraped from the OLG page).
 function showConfig(name, url) {
   editIndex = null;
   pickedImg = "";
@@ -143,12 +204,14 @@ function showConfig(name, url) {
   openConfigUI("Add a slot", "Add slot", true);
   $("smName").value = name || slugName(url);
   $("smLink").value = url;
+  setFeatureFields({ minBet: "", bonus: false, freeSpins: false });
   renderThumb(true);
   invoke("fetch_olg_game", { url })
     .then((d) => {
       if ($("smConfig").hidden) return;
       if (d && d.name) $("smName").value = d.name;
       if (d && d.img && !pickedImg) pickedImg = d.img;
+      if (d) setFeatureFields(d);
       renderThumb();
     })
     .catch(() => renderThumb());
@@ -165,7 +228,23 @@ function openEdit(i) {
   openConfigUI("Edit slot", "Save changes", false);
   $("smName").value = slot.name;
   $("smLink").value = slot.url;
+  setFeatureFields(slot);
   renderThumb();
+}
+
+function setFeatureFields(o) {
+  $("smMinBet").value = o.minBet || "";
+  $("smRtp").value = o.rtp || "";
+  $("smBonus").checked = !!o.bonus;
+  $("smFreeSpins").checked = !!o.freeSpins;
+}
+function readFeatureFields() {
+  return {
+    minBet: $("smMinBet").value.trim(),
+    rtp: $("smRtp").value.trim(),
+    bonus: $("smBonus").checked,
+    freeSpins: $("smFreeSpins").checked,
+  };
 }
 
 function openConfigUI(title, saveLabel, showBack) {
@@ -254,6 +333,10 @@ export function initSlots() {
   $("smBack").addEventListener("click", showPick);
   $("smSearch").addEventListener("input", (e) => renderResults(e.target.value));
 
+  // Search your saved slots by name.
+  const slotsSearch = $("slotsSearch");
+  if (slotsSearch) slotsSearch.addEventListener("input", (e) => { query = e.target.value; renderGrid(); });
+
   // Paste-a-URL → straight into the customise step (auto title + image).
   $("smUrlGo").addEventListener("click", () => {
     const clean = cleanUrl($("smUrl").value);
@@ -267,14 +350,23 @@ export function initSlots() {
   document.querySelectorAll("#smCats .sm-cat").forEach((b) => {
     b.addEventListener("click", () => { chosenCat = b.dataset.cat; syncCatButtons(); });
   });
-  // Category filter (grid)
-  document.querySelectorAll("#slotsFilter .sf-chip").forEach((b) => {
+  // Category filter (grid) — exclude the sort chip, which isn't a category.
+  document.querySelectorAll("#slotsFilter .sf-chip:not(.sf-sort)").forEach((b) => {
     b.addEventListener("click", () => {
       filter = b.dataset.cat;
-      document.querySelectorAll("#slotsFilter .sf-chip").forEach((x) => x.classList.toggle("active", x === b));
+      document.querySelectorAll("#slotsFilter .sf-chip:not(.sf-sort)").forEach((x) => x.classList.toggle("active", x === b));
       renderGrid();
     });
   });
+  // Sort by lowest min bet
+  const sortBtn = $("slotsSort");
+  if (sortBtn) {
+    sortBtn.addEventListener("click", () => {
+      sortByBet = !sortByBet;
+      sortBtn.classList.toggle("active", sortByBet);
+      renderGrid();
+    });
+  }
 
   $("smName").addEventListener("input", () => { if (!pickedImg) renderThumb(); });
   $("smImgUrl").addEventListener("input", (e) => { pickedImg = e.target.value.trim(); renderThumb(); });
@@ -291,15 +383,19 @@ export function initSlots() {
     const url = cleanUrl($("smLink").value);
     if (!isGameUrl(url)) { setMsg("Enter a valid OLG game URL (…/casino/play-….html)."); return; }
     const arr = loadSlots();
+    const feat = readFeatureFields();
     if (editIndex != null) {
       if (arr.some((s, j) => j !== editIndex && s.url === url)) { setMsg("Another slot already uses that link."); return; }
-      arr[editIndex] = { name: name || slugName(url), url, img: pickedImg || "", cat: chosenCat };
+      arr[editIndex] = {
+        name: name || slugName(url), url, img: pickedImg || "", cat: chosenCat,
+        minBet: feat.minBet, rtp: feat.rtp, bonus: feat.bonus, freeSpins: feat.freeSpins,
+      };
       saveSlots(arr);
       renderGrid();
       closeModal();
     } else {
       if (arr.some((s) => s.url === url)) { setMsg("Already in your slots."); return; }
-      addSlot(name, url, pickedImg, chosenCat);
+      addSlot(name, url, pickedImg, chosenCat, feat);
       closeModal();
     }
   });
@@ -313,11 +409,19 @@ export function initSlots() {
     const url = cleanUrl((e.payload && e.payload.url) || "");
     const cat = (e.payload && e.payload.cat) || "Slot";
     if (!isGameUrl(url) || loadSlots().some((s) => s.url === url)) return;
-    let name = "", img = "";
+    let name = "", img = "", feat = {};
     try {
       const d = await invoke("fetch_olg_game", { url });
       name = d.name || ""; img = d.img || "";
+      feat = { minBet: d.minBet || "", rtp: d.rtp || "", bonus: !!d.bonus, freeSpins: !!d.freeSpins };
     } catch (err) { /* fall back to slug name */ }
-    addSlot(name, url, img, cat);
+    addSlot(name, url, img, cat, feat);
+  });
+
+  // The pull-counter overlay injected into a play window asks us to close that
+  // window when the player hits their limit and taps "Close window".
+  listen("slot-close", (e) => {
+    const label = e.payload && e.payload.label;
+    if (label) invoke("close_window", { label });
   });
 }

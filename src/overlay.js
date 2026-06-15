@@ -221,6 +221,8 @@ function setAuto(on) {
 
 // ---- wiring ----
 showView(loadSettings().gameMode);
+// Ask for macOS Screen Recording access up front so the first scan isn't blank.
+invoke("ensure_screen_permission").catch(() => {});
 $("scanBtn").addEventListener("click", doScan);
 $("autoBtn").addEventListener("click", () => setAuto(!autoOn));
 $("closeOverlay").addEventListener("click", () => win.close());

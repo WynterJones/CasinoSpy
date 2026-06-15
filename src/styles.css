@@ -1370,19 +1370,36 @@ body { height: 100%; overflow-y: auto; overflow-x: hidden; }
 }
 .buddy-stage { position: relative; }
 
-/* Bottom-right ambient companion — click-through decoration, sits above the nav. */
-.buddy-companion {
-  position: fixed; right: 6px; bottom: 78px;
-  z-index: 5; padding: 0; min-height: 0; background: none; border: none; box-shadow: none;
-  display: flex; flex-direction: column; align-items: center;
-  pointer-events: none;
+/* Full-window companion layer — click-through except for the pets themselves. */
+.buddy-layer { position: fixed; inset: 0; z-index: 5; pointer-events: none; }
+/* Each draggable character. */
+.buddy-pet {
+  position: fixed; display: flex; flex-direction: column; align-items: center;
+  pointer-events: auto; touch-action: none;
   filter: drop-shadow(0 10px 14px rgba(0,0,0,0.55));
 }
-.buddy-companion .buddy-host { width: 200px; height: 200px; display: grid; place-items: center; }
-/* Persisted left↔right flip (toggled from the bottom nav). */
+.buddy-pet .pet-host { display: grid; place-items: center; cursor: grab; }
+.buddy-pet.dragging .pet-host { cursor: grabbing; }
+.buddy-pet.dragging { filter: drop-shadow(0 16px 22px rgba(0,0,0,0.6)); }
+/* Persisted left↔right flip — only the sprite mirrors, not the tool row. */
+.buddy-pet.flip .buddy-stage { transform: scaleX(-1); }
 .buddy-stage.flip { transform: scaleX(-1); }
+/* Hover tools above each pet. */
+.pet-tools {
+  display: flex; gap: 5px; margin-bottom: 4px; opacity: 0; transform: translateY(4px);
+  transition: 0.15s; pointer-events: none;
+}
+.buddy-pet:hover .pet-tools { opacity: 1; transform: none; pointer-events: auto; }
+.pet-tb {
+  width: 26px; height: 26px; min-height: 0; padding: 0; border-radius: 50%;
+  display: grid; place-items: center; font-size: 13px; line-height: 1; cursor: pointer;
+  background: rgba(8,30,21,0.96); border: 1px solid rgba(255,226,142,0.35); color: #ffe49a;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.45);
+}
+.pet-tb:hover { background: linear-gradient(180deg, #f6d26a, #d9a93a); color: #2a1d04; border-color: rgba(255,255,255,0.5); }
 .buddy-bubble {
-  margin-bottom: 6px; padding: 5px 11px; border-radius: 999px;
+  position: fixed; right: 10px; bottom: 84px; z-index: 6; pointer-events: none;
+  padding: 5px 11px; border-radius: 999px;
   background: rgba(3,14,10,0.95); border: 1px solid var(--accent);
   color: #fff6db; font-size: 11px; font-weight: 800; white-space: nowrap;
   box-shadow: 0 8px 18px rgba(0,0,0,0.5); animation: buddyFloat 2.8s ease-in-out infinite;
@@ -1559,6 +1576,36 @@ body { height: 100%; overflow-y: auto; overflow-x: hidden; }
 .bm-done { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
 .bm-done-sprite { width: 96px; height: 96px; object-fit: contain; image-rendering: pixelated; }
 
+/* Character manager grid */
+.bm-chars { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.bm-char {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px;
+  border-radius: 12px; background: rgba(0,0,0,0.28); border: 1px solid rgba(255,226,142,0.16);
+}
+.bm-char-img { width: 64px; height: 64px; object-fit: contain; image-rendering: pixelated; }
+.bm-char-name { font-size: 12px; font-weight: 800; color: #fff6db; text-align: center; }
+.bm-char-actions { display: flex; gap: 6px; }
+.bm-char-actions button { min-height: 0; padding: 5px 10px; font-size: 11px; }
+.bm-char-actions .danger { color: #ff625d; border-color: rgba(255,98,93,0.6); }
+/* Starter-image count selector */
+.bm-count { display: flex; gap: 6px; }
+.bm-count-opt {
+  min-height: 0; width: 40px; padding: 8px 0; border-radius: 9px; font-weight: 800;
+  background: rgba(0,0,0,0.28); border: 1px solid rgba(255,226,142,0.18); color: var(--muted);
+}
+.bm-count-opt.active { background: linear-gradient(180deg, #f6d26a, #d9a93a); color: #2a1d04; border-color: rgba(255,255,255,0.3); }
+/* Clip toggles */
+.bm-clips { display: flex; flex-direction: column; gap: 8px; }
+.bm-clip { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--text); cursor: pointer; }
+.bm-clip input { width: 16px; height: 16px; accent-color: var(--accent); }
+.bm-clip small { color: var(--muted); }
+.bm-clip.req { color: var(--muted); }
+/* Edit header */
+.bm-edit-head { display: flex; gap: 12px; align-items: flex-start; }
+.bm-edit-fields { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.bm-flip-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.bm-flip-row input { width: 16px; height: 16px; accent-color: var(--accent); }
+
 /* ================= Session window redesign ================= */
 .sess-body { gap: 10px; justify-content: flex-start; padding-top: 10px; }
 .sess-stage { display: grid; place-items: center; position: relative; z-index: 2; margin-top: -24px; margin-bottom: -64px; pointer-events: none; }
@@ -1600,6 +1647,13 @@ body { height: 100%; overflow-y: auto; overflow-x: hidden; }
 .slots-actions { display: flex; gap: 8px; margin-bottom: 10px; }
 .slots-open, .slots-add { flex: 1; min-height: 38px; font-size: 13px; font-weight: 700; }
 .slots-empty { margin: 8px 2px 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
+/* Search your saved slots */
+.slots-search {
+  width: 100%; min-height: 38px; margin-bottom: 10px; padding: 8px 12px; border-radius: 10px;
+  background: rgba(0,0,0,0.3); border: 1px solid rgba(255,226,142,0.18); color: var(--text); font-size: 13px;
+}
+.slots-search::placeholder { color: rgba(184,200,183,0.55); }
+.slots-search:focus { outline: none; border-color: var(--border-strong); box-shadow: 0 0 0 3px rgba(242,201,76,0.12); }
 /* Category filter chips */
 .slots-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .sf-chip {
@@ -1617,7 +1671,9 @@ body { height: 100%; overflow-y: auto; overflow-x: hidden; }
   border: 1px solid rgba(255,226,142,0.16);
 }
 .slot-card:hover { border-color: var(--border-strong); }
-.slot-card img { width: 100%; height: 100%; object-fit: contain; }
+/* Fill the 16:9 tile edge-to-edge. OLG's carousel logos are 16:9 so they fit with
+   no crop; odd-ratio fallbacks get cropped to fill rather than letterboxed. */
+.slot-card img { width: 100%; height: 100%; object-fit: cover; }
 .slot-ph { font-size: 34px; font-weight: 900; color: rgba(255,226,142,0.6); }
 .slot-cat {
   position: absolute; top: 5px; left: 5px; z-index: 1; padding: 2px 7px; border-radius: 999px;
@@ -1636,10 +1692,45 @@ body { height: 100%; overflow-y: auto; overflow-x: hidden; }
   border-radius: 8px; font-size: 14px; line-height: 1; display: grid; place-items: center;
   background: rgba(2,10,7,0.85); border: 1px solid rgba(255,226,142,0.3); color: #ffe49a;
 }
-.slot-del { top: 5px; right: 5px; }
+.slot-del { top: 5px; right: 34px; }
 .slot-del:hover { color: #ff625d; }
+.slot-del.armed { background: #d83b2c; border-color: #ff625d; color: #fff; }
+.slot-del.armed:hover { color: #fff; }
+/* Favourite star — always visible when on, hover-visible otherwise. */
+.slot-fav {
+  position: absolute; top: 5px; right: 5px; z-index: 4; width: 24px; height: 24px; min-height: 0; padding: 0;
+  border-radius: 8px; font-size: 15px; line-height: 1; display: grid; place-items: center;
+  background: rgba(2,10,7,0.85); border: 1px solid rgba(255,226,142,0.3); color: #ffe49a;
+  opacity: 0; transition: opacity 0.15s ease;
+}
+.slot-card:hover .slot-fav { opacity: 1; }
+.slot-fav.on { opacity: 1; color: #ffd54a; border-color: rgba(255,213,74,0.6); }
+.slot-fav:hover { color: #ffd54a; }
 .slot-edit-btn { bottom: 5px; right: 5px; }
 .slot-edit-btn:hover { color: #fff; }
+/* Min-bet "coin" badge (bottom-left). Always visible so you can scan cheap games. */
+.slot-coin {
+  position: absolute; bottom: 5px; left: 5px; z-index: 1; display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 7px 2px 5px; border-radius: 999px; font-size: 10px; font-weight: 900; letter-spacing: 0.2px;
+  background: linear-gradient(180deg, #f6d26a, #d9a93a); color: #2a1d04;
+  border: 1px solid rgba(255,255,255,0.45); box-shadow: 0 2px 8px rgba(0,0,0,0.45);
+}
+.slot-coin .coin-ic {
+  display: grid; place-items: center; width: 13px; height: 13px; border-radius: 50%;
+  background: rgba(42,29,4,0.85); color: #ffe49a; font-size: 9px; font-weight: 900;
+  border: 1px solid rgba(255,255,255,0.35);
+}
+/* Feature tags (bonus / free spins) — revealed on hover beneath the name. */
+.slot-tags { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin-top: 6px; }
+.slot-tag {
+  padding: 2px 8px; border-radius: 999px; font-size: 9px; font-weight: 800; letter-spacing: 0.3px;
+  border: 1px solid rgba(255,255,255,0.18);
+}
+.slot-tag.bonus { background: rgba(242,201,76,0.18); color: #ffe49a; border-color: rgba(255,226,142,0.4); }
+.slot-tag.spins { background: rgba(46,209,120,0.18); color: #7ef0ac; border-color: rgba(46,209,120,0.4); }
+.slot-tag.rtp { background: rgba(120,180,255,0.16); color: #b9d3ff; border-color: rgba(120,180,255,0.4); }
+/* Min-bet sort chip — gets a divider before it */
+.sf-sort { margin-left: auto; }
 /* Category picker (add modal) */
 .sm-cats { display: flex; gap: 6px; }
 .sm-cat {
@@ -1694,6 +1785,13 @@ body { height: 100%; overflow-y: auto; overflow-x: hidden; }
 .sm-thumb span { font-size: 34px; font-weight: 900; color: rgba(255,226,142,0.6); }
 .sm-chosen-name { font-size: 16px; font-weight: 800; color: #fff6db; }
 .sm-label { font-size: 11px; color: var(--muted); }
+.sm-feat-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.sm-minbet { flex: 1 1 120px; min-height: 38px; }
+.sm-check {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--muted);
+  cursor: pointer; white-space: nowrap;
+}
+.sm-check input { width: 15px; height: 15px; accent-color: #d9a93a; }
 .sm-img-row { display: flex; gap: 8px; }
 .sm-imgurl { flex: 1; min-height: 38px; }
 .sm-file-btn { min-height: 38px; white-space: nowrap; font-size: 12px; }

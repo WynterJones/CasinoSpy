@@ -14,6 +14,73 @@ pub struct Region {
     pub height: u32,
 }
 
+// macOS Screen Recording permission. Without it, screen captures come back blank
+// (a black frame), which the overlay used to mis-report as "WAITING". We preflight
+// the permission and can trigger the system prompt that lists the app under
+// System Settings → Privacy & Security → Screen Recording.
+#[cfg(target_os = "macos")]
+#[link(name = "CoreGraphics", kind = "framework")]
+extern "C" {
+    fn CGPreflightScreenCaptureAccess() -> bool;
+    fn CGRequestScreenCaptureAccess() -> bool;
+}
+
+fn screen_capture_allowed() -> bool {
+    #[cfg(target_os = "macos")]
+    unsafe {
+        CGPreflightScreenCaptureAccess()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        true
+    }
+}
+
+// Returns true if access is granted. On macOS, if it isn't, this triggers the
+// system permission prompt (and registers the app in the Screen Recording list).
+#[tauri::command]
+fn ensure_screen_permission() -> bool {
+    #[cfg(target_os = "macos")]
+    unsafe {
+        if CGPreflightScreenCaptureAccess() {
+            return true;
+        }
+        CGRequestScreenCaptureAccess()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        true
+    }
+}
+
+const SCREEN_PERMISSION_MSG: &str =
+    "No screen access. Grant CasinoSpy permission in System Settings → Privacy & Security → \
+Screen Recording, then quit and reopen the app.";
+
+// Heuristic: a permission-denied capture is a single flat colour (usually black).
+// Card tables never are, so a uniform crop means we didn't really capture the screen.
+fn is_blank_capture(img: &image::RgbaImage) -> bool {
+    let mut pixels = img.pixels();
+    let first = match pixels.next() {
+        Some(p) => *p,
+        None => return true,
+    };
+    let total = (img.width() as usize) * (img.height() as usize);
+    let step = (total / 4096).max(1);
+    for (i, p) in img.pixels().enumerate() {
+        if i % step != 0 {
+            continue;
+        }
+        let d = (p[0] as i32 - first[0] as i32).abs()
+            + (p[1] as i32 - first[1] as i32).abs()
+            + (p[2] as i32 - first[2] as i32).abs();
+        if d > 12 {
+            return false;
+        }
+    }
+    true
+}
+
 fn blackjack_prompt(img_path: &str) -> String {
     format!(
         "Use the Read tool to open the image file at {img_path}. \
@@ -74,6 +141,11 @@ fn capture_region_png(region: &Region) -> Result<Vec<u8>, String> {
     let rh = region.height.min(fh.saturating_sub(ry)).max(1);
 
     let cropped = imageops::crop_imm(&full, rx, ry, rw, rh).to_image();
+
+    // A flat/black crop means the OS denied screen access (or nothing was on screen).
+    if is_blank_capture(&cropped) {
+        return Err(SCREEN_PERMISSION_MSG.to_string());
+    }
 
     let mut buf: Vec<u8> = Vec::new();
     PngEncoder::new(&mut buf)
@@ -171,6 +243,10 @@ async fn scan(app: tauri::AppHandle, region: Region, mode: String, model: String
     tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
         let claude = resolve_claude()
             .ok_or_else(|| "Claude Code CLI not found. Set CLAUDE_CLI_PATH or install Claude Code.".to_string())?;
+
+        if !screen_capture_allowed() {
+            return Err(SCREEN_PERMISSION_MSG.to_string());
+        }
 
         emit_stage(&app2, "capturing");
         let png = capture_region_png(&region)?;
@@ -344,9 +420,41 @@ fn fetch_olg_games() -> Result<Vec<OlgGame>, String> {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct OlgDetail {
     name: String,
     img: String,
+    min_bet: String,
+    rtp: String,
+    bonus: bool,
+    free_spins: bool,
+}
+
+// OLG game pages render a spec table:
+//   <span class="... title-pb">Min Bet</span> <span class="... value-ob">$0.75</span>
+// Pull the value-ob that immediately follows the given label.
+fn extract_spec(body: &str, label: &str) -> String {
+    let pat = format!(
+        r#"(?is)>\s*{}\s*</span>\s*<span[^>]*value-ob[^>]*>\s*([^<]+?)\s*</span>"#,
+        regex::escape(label)
+    );
+    regex::Regex::new(&pat)
+        .ok()
+        .and_then(|re| re.captures(body).map(|c| decode_entities(c[1].trim())))
+        .unwrap_or_default()
+}
+
+// OLG embeds the carousel art folder in og:image as `…/ewma/meganav.png`, a tiny
+// 192×80 logo that letterboxes in the (16:9) grid. The same folder holds a sharp
+// 16:9 `desktop-carousel-logo.png` — prefer it, fall back to whatever og:image is.
+fn best_thumb(og_url: &str) -> String {
+    if og_url.ends_with("meganav.png") {
+        let alt = og_url.replace("meganav.png", "desktop-carousel-logo.png");
+        if let Some(d) = download_thumb(&alt) {
+            return d;
+        }
+    }
+    download_thumb(og_url).unwrap_or_default()
 }
 
 // Pull the `content="..."` out of the first <meta> tag bearing the given
@@ -442,10 +550,28 @@ fn fetch_olg_game(url: String) -> Result<OlgDetail, String> {
                 u
             }
         })
-        .and_then(|u| download_thumb(&u))
+        .map(|u| best_thumb(&u))
         .unwrap_or_default();
 
-    Ok(OlgDetail { name, img })
+    // Real specs straight off the page's overview table.
+    let min_bet = extract_spec(&body, "Min Bet");
+    let rtp = regex::Regex::new(r#"rtpString="([^"]+)""#)
+        .ok()
+        .and_then(|re| re.captures(&body).map(|c| c[1].trim().to_string()))
+        .unwrap_or_default();
+    // The game config JSON carries a free-spins flag (HTML-entity-encoded). True on
+    // either web or app counts as "has free spins".
+    let free_spins = regex::Regex::new(r#"(?is)freeSpins.{0,140}?enabled(?:&#34;|"|\\)*\s*:\s*true"#)
+        .map(|re| re.is_match(&body))
+        .unwrap_or(false);
+    // Bonus isn't a clean flag — fall back to the marketing copy (title + description)
+    // so footer/nav text elsewhere on the page doesn't trip every game.
+    let desc = meta_content(&body, "og:description")
+        .or_else(|| meta_content(&body, "twitter:description"))
+        .unwrap_or_default();
+    let bonus = format!("{} {}", name, desc).to_lowercase().contains("bonus");
+
+    Ok(OlgDetail { name, img, min_bet, rtp, bonus, free_spins })
 }
 
 const OLG_FAV_SCRIPT: &str = r#"
@@ -524,6 +650,177 @@ const OLG_FAV_SCRIPT: &str = r#"
 })();
 "#;
 
+// Injected into per-game play windows: a draggable poker-chip "pull counter".
+// Any click anywhere on the page counts a spin (clicks on the chip's own controls
+// are ignored); toggle counting on/off; drag to reposition; set a max limit that
+// pops a full-window overlay when reached. State persists
+// per game in localStorage. "Close window" rounds a `slot-close` event back to the
+// app (the remote page can't close its own native window). `__CSPY_LABEL__` is
+// replaced with this window's label so the app knows which window to close.
+const COUNTER_SCRIPT: &str = r#"
+(function(){
+  if (window.__casinospyChip) return;
+  window.__casinospyChip = true;
+  var LABEL = "__CSPY_LABEL__";
+  var KEY = "casinospy_chip::" + location.pathname;
+  var S = { n:0, limit:0, cap:0, on:true, x:null, y:null };
+  try { var saved = JSON.parse(localStorage.getItem(KEY)); if (saved) S = Object.assign(S, saved); } catch(e){}
+  function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} }
+
+  var css = document.createElement('style');
+  css.textContent = ''
+    + '.cspy-w{position:fixed;z-index:2147483646;right:20px;bottom:96px;font-family:system-ui,-apple-system,sans-serif;user-select:none;-webkit-user-select:none;touch-action:none}'
+    + '.cspy-w.placed{right:auto;bottom:auto}'
+    + '.cspy-tools{display:flex;gap:6px;justify-content:center;margin-bottom:8px;opacity:0;transform:translateY(4px);transition:.15s;pointer-events:none}'
+    + '.cspy-w:hover .cspy-tools{opacity:1;transform:none;pointer-events:auto}'
+    + '.cspy-tb{width:30px;height:30px;border-radius:50%;border:1px solid rgba(255,226,142,.35);background:rgba(8,30,21,.96);color:#ffe49a;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(0,0,0,.45);line-height:1}'
+    + '.cspy-tb:hover{background:linear-gradient(180deg,#f6d26a,#d9a93a);color:#2a1d04;border-color:rgba(255,255,255,.5)}'
+    + '.cspy-tb.live{background:#1f8a4c;color:#fff;border-color:rgba(255,255,255,.4)}'
+    + '.cspy-chip{position:relative;width:78px;height:78px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;'
+    + 'background:repeating-conic-gradient(from 0deg,#0c5a30 0deg 18deg,#f3f6f4 18deg 36deg);'
+    + 'box-shadow:0 12px 26px rgba(0,0,0,.55),inset 0 0 0 2px rgba(0,0,0,.25);transition:transform .08s}'
+    + '.cspy-chip:active{transform:scale(.93)}'
+    + '.cspy-chip.off{filter:grayscale(.85) brightness(.8);cursor:default}'
+    + '.cspy-disc{position:absolute;inset:9px;border-radius:50%;background:radial-gradient(circle at 50% 38%,#15351f,#0a2114);border:3px solid #e7c25c;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:inset 0 2px 6px rgba(0,0,0,.6)}'
+    + '.cspy-n{color:#ffe9a6;font-weight:900;font-size:24px;line-height:1;text-shadow:0 1px 2px rgba(0,0,0,.6)}'
+    + '.cspy-lab{color:#9fd8b3;font-weight:800;font-size:8px;letter-spacing:1.5px;margin-top:2px;text-transform:uppercase}'
+    + '.cspy-pop{position:absolute;bottom:88px;right:0;width:188px;background:rgba(8,30,21,.98);border:1px solid #f2c94c;border-radius:14px;padding:12px;box-shadow:0 16px 36px rgba(0,0,0,.6);display:none;flex-direction:column;gap:8px}'
+    + '.cspy-pop.show{display:flex}'
+    + '.cspy-pop label{color:#b8c8b7;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase}'
+    + '.cspy-pop .row{display:flex;gap:6px;align-items:center}'
+    + '.cspy-pop input{flex:1;background:rgba(0,0,0,.35);border:1px solid rgba(255,226,142,.3);border-radius:8px;color:#ffe49a;font-size:14px;font-weight:700;padding:7px 9px;width:100%}'
+    + '.cspy-pop button{background:linear-gradient(180deg,#f6d26a,#d9a93a);color:#2a1d04;border:none;border-radius:8px;padding:8px;font-weight:800;font-size:12px;cursor:pointer}'
+    + '.cspy-pop .ghost{background:rgba(0,0,0,.3);color:#ffe49a;border:1px solid rgba(255,226,142,.3)}'
+    + '.cspy-ov{position:fixed;inset:0;z-index:2147483647;background:rgba(4,12,8,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center}'
+    + '.cspy-ov.show{display:flex}'
+    + '.cspy-card{width:340px;max-width:88vw;background:linear-gradient(180deg,#0e2e1d,#08200f);border:1px solid #f2c94c;border-radius:20px;padding:26px 24px;text-align:center;box-shadow:0 30px 70px rgba(0,0,0,.7)}'
+    + '.cspy-card .big{font-size:46px;font-weight:900;color:#ffe9a6;line-height:1;text-shadow:0 2px 6px rgba(0,0,0,.5)}'
+    + '.cspy-card h2{margin:14px 0 4px;color:#fff6db;font-size:19px;font-weight:800}'
+    + '.cspy-card p{margin:0 0 20px;color:#a7c4ad;font-size:13px}'
+    + '.cspy-card .btns{display:flex;flex-direction:column;gap:9px}'
+    + '.cspy-card .btns button{padding:13px;border-radius:11px;font-weight:800;font-size:14px;cursor:pointer;border:none}'
+    + '.cspy-card .stop{background:linear-gradient(180deg,#ff6a5a,#d83b2c);color:#fff}'
+    + '.cspy-card .go{background:rgba(255,255,255,.08);color:#ffe49a;border:1px solid rgba(255,226,142,.35)}';
+  (document.head||document.documentElement).appendChild(css);
+
+  var wrap = document.createElement('div'); wrap.className='cspy-w';
+  wrap.innerHTML = ''
+    + '<div class="cspy-pop" id="cspyPop">'
+    +   '<label>Pull limit (0 = off)</label>'
+    +   '<div class="row"><input id="cspyLimit" type="number" min="0" step="1" inputmode="numeric"></div>'
+    +   '<button id="cspyReset" class="ghost" type="button">Reset count</button>'
+    + '</div>'
+    + '<div class="cspy-tools">'
+    +   '<button class="cspy-tb" id="cspyPower" title="Counting on/off">II</button>'
+    +   '<button class="cspy-tb" id="cspyMinus" title="Undo one">&minus;</button>'
+    +   '<button class="cspy-tb" id="cspyGear" title="Limit & settings">&#9881;</button>'
+    + '</div>'
+    + '<div class="cspy-chip" id="cspyChip"><div class="cspy-disc"><span class="cspy-n" id="cspyN">0</span><span class="cspy-lab">pulls</span></div></div>';
+
+  var ov = document.createElement('div'); ov.className='cspy-ov';
+  ov.innerHTML = ''
+    + '<div class="cspy-card">'
+    +   '<div class="big" id="cspyOvN">0</div>'
+    +   '<h2>Pull limit reached</h2>'
+    +   '<p id="cspyOvP">You set a limit of 0 pulls.</p>'
+    +   '<div class="btns">'
+    +     '<button class="stop" id="cspyClose" type="button">Close this game window</button>'
+    +     '<button class="go" id="cspyKeep" type="button">Keep playing</button>'
+    +   '</div>'
+    + '</div>';
+
+  function boot(){
+    document.body.appendChild(wrap);
+    document.body.appendChild(ov);
+    wire();
+    apply();
+  }
+
+  var chip=null,nEl=null,pop=null,power=null;
+  function apply(){
+    nEl.textContent = S.n;
+    document.getElementById('cspyOvN').textContent = S.n;
+    chip.classList.toggle('off', !S.on);
+    power.classList.toggle('live', S.on);
+    power.textContent = S.on ? 'II' : '▶';
+    document.getElementById('cspyLimit').value = S.limit || 0;
+    if (S.x != null && S.y != null){
+      wrap.classList.add('placed');
+      wrap.style.left = S.x + 'px';
+      wrap.style.top = S.y + 'px';
+    }
+  }
+  function showLimitOverlay(){
+    document.getElementById('cspyOvN').textContent = S.n;
+    document.getElementById('cspyOvP').textContent = 'You set a limit of ' + S.cap + ' pulls.';
+    ov.classList.add('show');
+  }
+  function bump(){
+    if (!S.on) return;
+    S.n++; save(); apply();
+    chip.style.transform='scale(1.12)'; setTimeout(function(){chip.style.transform='';},90);
+    if (S.limit > 0 && S.n >= S.cap) showLimitOverlay();
+  }
+  function closeWin(){
+    var p = { label: LABEL };
+    try { if (window.__TAURI__ && window.__TAURI__.event) { window.__TAURI__.event.emit('slot-close', p); return; } } catch(e){}
+    try { if (window.__TAURI_INTERNALS__) { window.__TAURI_INTERNALS__.invoke('plugin:event|emit',{event:'slot-close',payload:p}); return; } } catch(e){}
+  }
+
+  function wire(){
+    chip = document.getElementById('cspyChip');
+    nEl = document.getElementById('cspyN');
+    pop = document.getElementById('cspyPop');
+    power = document.getElementById('cspyPower');
+
+    // tap-to-count vs drag-to-move on the chip
+    var down=null, moved=false;
+    chip.addEventListener('pointerdown', function(e){
+      down={x:e.clientX,y:e.clientY,l:wrap.getBoundingClientRect().left,t:wrap.getBoundingClientRect().top};
+      moved=false; chip.setPointerCapture(e.pointerId);
+    });
+    chip.addEventListener('pointermove', function(e){
+      if(!down) return;
+      var dx=e.clientX-down.x, dy=e.clientY-down.y;
+      if(Math.abs(dx)>5||Math.abs(dy)>5){
+        moved=true;
+        var nl=Math.max(4,Math.min(window.innerWidth-86,down.l+dx));
+        var nt=Math.max(4,Math.min(window.innerHeight-86,down.t+dy));
+        wrap.classList.add('placed'); wrap.style.left=nl+'px'; wrap.style.top=nt+'px';
+      }
+    });
+    chip.addEventListener('pointerup', function(e){
+      if(!down) return;
+      try{chip.releasePointerCapture(e.pointerId);}catch(_){}
+      if(moved){ var r=wrap.getBoundingClientRect(); S.x=r.left; S.y=r.top; save(); }
+      else { bump(); }
+      down=null;
+    });
+
+    power.onclick=function(){ S.on=!S.on; save(); apply(); };
+    document.getElementById('cspyMinus').onclick=function(){ if(S.n>0){S.n--; save(); apply();} };
+    document.getElementById('cspyGear').onclick=function(){ pop.classList.toggle('show'); };
+    document.getElementById('cspyReset').onclick=function(){ S.n=0; if(S.limit>0)S.cap=S.limit; save(); apply(); pop.classList.remove('show'); };
+    document.getElementById('cspyLimit').onchange=function(e){
+      var v=Math.max(0,parseInt(e.target.value,10)||0); S.limit=v;
+      S.cap = v>0 ? (Math.floor(S.n/v)+1)*v : 0;
+      save(); apply();
+    };
+    document.getElementById('cspyClose').onclick=closeWin;
+    document.getElementById('cspyKeep').onclick=function(){ S.cap += (S.limit||0); save(); ov.classList.remove('show'); };
+
+    // Count a pull on any click across the page — not just on the chip. Ignore
+    // clicks on our own widget/overlay so the tool buttons and drag don't tally.
+    document.addEventListener('click', function(e){
+      if (wrap.contains(e.target) || ov.contains(e.target)) return;
+      bump();
+    }, true);
+  }
+
+  if(document.body) boot(); else document.addEventListener('DOMContentLoaded', boot);
+})();
+"#;
+
 // Open any external URL in its own native window (used for the OLG catalogue and
 // for launching individual slots in demo/real mode).
 #[tauri::command]
@@ -543,7 +840,8 @@ fn open_url(app: tauri::AppHandle, label: String, url: String, title: String) ->
     // Inject the "Add to Favourites" button only in the OLG catalogue window — not
     // in the per-game demo/real play windows.
     let is_olg = u.host_str().map(|h| h.contains("olg.ca")).unwrap_or(false);
-    let is_catalogue = is_olg && !u.path().contains("/casino/play-");
+    let is_play = u.path().contains("/casino/play-");
+    let is_catalogue = is_olg && !is_play;
     let mut builder = WebviewWindowBuilder::new(&app, &safe, WebviewUrl::External(u))
         .title(&title)
         .inner_size(1120.0, 800.0)
@@ -552,10 +850,25 @@ fn open_url(app: tauri::AppHandle, label: String, url: String, title: String) ->
         .user_agent(DESKTOP_UA);
     if is_catalogue {
         builder = builder.initialization_script(OLG_FAV_SCRIPT);
+    } else if is_play {
+        // Per-game window → inject the poker-chip pull counter (label baked in so
+        // its "Close window" button can target this exact window).
+        builder = builder.initialization_script(&COUNTER_SCRIPT.replace("__CSPY_LABEL__", &safe));
     }
     builder
         .build()
         .map_err(|e| format!("window failed: {e}"))?;
+    Ok(())
+}
+
+// Close a window by label — used by the slot pull-counter's "Close window" button,
+// which emits a `slot-close` event the main window relays here (remote pages can't
+// close their own native window).
+#[tauri::command]
+fn close_window(app: tauri::AppHandle, label: String) -> Result<(), String> {
+    if let Some(w) = app.get_webview_window(&label) {
+        let _ = w.close();
+    }
     Ok(())
 }
 
@@ -632,12 +945,17 @@ pub fn run() {
             if let Err(e) = app.global_shortcut().register("CommandOrControl+Shift+B") {
                 eprintln!("could not register global shortcut: {e}");
             }
+            // Surface the Screen Recording prompt on first launch so the app is
+            // registered in the permission list before the first scan.
+            if !screen_capture_allowed() {
+                let _ = ensure_screen_permission();
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            scan, check_cli, open_overlay, open_selector, open_slots_data,
+            scan, check_cli, ensure_screen_permission, open_overlay, open_selector, open_slots_data,
             open_session_overlay, open_jiffrey, chat_reply,
-            fetch_olg_games, fetch_olg_game, open_url
+            fetch_olg_games, fetch_olg_game, open_url, close_window
         ])
         .run(tauri::generate_context!())
         .expect("error while running CasinoSpy");

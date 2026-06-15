@@ -4,7 +4,10 @@ import {
   getSession, startSession, stopSession, adjustCurrent, setCurrent,
   winLoss, money, wlState, onSessionChange, getSessionsHistory, deleteSessionAt,
 } from "./session.js";
-import { createBuddyStage, hasBuddy, buddyName, loadBuddy, saveBuddy } from "./buddy.js";
+import {
+  createBuddyStage, buddyName, loadBuddy, saveBuddy,
+  getCompanions, getCompanion, updateCompanion, hasAnyCompanion,
+} from "./buddy.js";
 import { initSlots } from "./slots.js";
 import { openBuddySetup } from "./buddy-setup.js";
 
@@ -91,7 +94,7 @@ function renderSession() {
     wlEl.textContent = st.cls === "even" ? "Even · buy-in " + money(s.buyIn) : st.text + " on " + money(s.buyIn);
   }
   renderSessHistory();
-  buddy.syncFromState();
+  syncAllPets();
 }
 
 function renderSessHistory() {
@@ -164,7 +167,7 @@ function renderLedger() {
   const meta = $("bankMeta");
   if (meta) meta.textContent = `In ${money(dep)} (${deps.length}) · Out ${money(wd)} (${wds.length})`;
   setBadge("bankBadge", st.cls === "even" ? "Even" : st.text, st.cls);
-  buddy.syncFromState();
+  syncAllPets();
 }
 function addLedger(type) {
   const input = $("bkAmount");
@@ -186,27 +189,99 @@ $("ledgerList").addEventListener("click", (e) => {
   renderLedger();
 });
 
-// ---- pixel buddy (ambient, click-through decoration) ----
-const buddy = createBuddyStage($("buddyHost"), { size: 220 });
+// ---- pixel companions (draggable, react to win/loss) ----
+const buddyLayer = $("buddyLayer");
+let petStages = []; // stage controllers, one per on-screen character
 
-// Persisted left/right flip, applied to every buddy stage.
+function syncAllPets() { petStages.forEach((s) => { try { s.syncFromState(); } catch { /* ignore */ } }); }
+const clampPct = (v) => Math.max(0, Math.min(94, v));
+
+// Tear down + rebuild the on-screen companions from settings.
+function buildCompanions() {
+  petStages.forEach((s) => { try { s.destroy(); } catch { /* ignore */ } });
+  petStages = [];
+  buddyLayer.querySelectorAll(".buddy-pet").forEach((n) => n.remove());
+
+  getCompanions().filter((c) => !c.hidden).forEach((c, i) => {
+    const size = c.size || 200;
+    const node = document.createElement("div");
+    node.className = "buddy-pet" + (c.flip ? " flip" : "");
+    node.dataset.id = c.id;
+    if (c.pos && typeof c.pos.xPct === "number") {
+      node.style.left = c.pos.xPct + "%"; node.style.top = c.pos.yPct + "%";
+      node.style.right = "auto"; node.style.bottom = "auto";
+    } else {
+      node.style.right = (6 + i * Math.round(size * 0.7)) + "px";
+      node.style.bottom = "78px";
+    }
+    node.innerHTML = `
+      <div class="pet-tools">
+        <button class="pet-tb" data-act="flip" title="Flip">⇄</button>
+        <button class="pet-tb" data-act="edit" title="Customise">✎</button>
+        <button class="pet-tb" data-act="hide" title="Hide">×</button>
+      </div>
+      <div class="buddy-host pet-host"></div>`;
+    buddyLayer.appendChild(node);
+    const host = node.querySelector(".pet-host");
+    host.style.width = size + "px"; host.style.height = size + "px";
+    petStages.push(createBuddyStage(host, { size, characterId: c.id, reactMs: 2200 }));
+    wirePet(node, c.id, host);
+  });
+  refreshBuddyHint();
+}
+
+function wirePet(node, id, host) {
+  node.querySelectorAll(".pet-tb").forEach((b) =>
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const act = b.dataset.act;
+      if (act === "flip") { const c = getCompanion(id); updateCompanion(id, { flip: !(c && c.flip) }); node.classList.toggle("flip"); }
+      else if (act === "edit") { openSetup({ editId: id }); }
+      else if (act === "hide") { updateCompanion(id, { hidden: true }); buildCompanions(); }
+    }));
+  // Drag the sprite to reposition; store as viewport percentages.
+  let down = null, moved = false;
+  host.addEventListener("pointerdown", (e) => {
+    const r = node.getBoundingClientRect();
+    down = { x: e.clientX, y: e.clientY, l: r.left, t: r.top };
+    moved = false; node.classList.add("dragging");
+    try { host.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+  });
+  host.addEventListener("pointermove", (e) => {
+    if (!down) return;
+    const dx = e.clientX - down.x, dy = e.clientY - down.y;
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+      moved = true;
+      node.style.left = Math.max(0, Math.min(window.innerWidth - 40, down.l + dx)) + "px";
+      node.style.top = Math.max(0, Math.min(window.innerHeight - 40, down.t + dy)) + "px";
+      node.style.right = "auto"; node.style.bottom = "auto";
+    }
+  });
+  host.addEventListener("pointerup", (e) => {
+    if (!down) return;
+    try { host.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+    node.classList.remove("dragging");
+    if (moved) {
+      const r = node.getBoundingClientRect();
+      updateCompanion(id, { pos: { xPct: clampPct(r.left / window.innerWidth * 100), yPct: clampPct(r.top / window.innerHeight * 100) } });
+    }
+    down = null;
+  });
+}
+
+// Spotlight applies the primary character's flip to its big sprite.
 function applyBuddyFlip() {
-  const on = !!loadBuddy().flip;
-  $("buddyHost").classList.toggle("flip", on);
   const bs = $("bsBuddy");
-  if (bs) bs.classList.toggle("flip", on);
+  if (bs) bs.classList.toggle("flip", !!loadBuddy().flip);
 }
 function refreshBuddyHint() {
   const bubble = $("buddyBubble");
-  if (hasBuddy()) {
-    bubble.hidden = true;
-  } else {
-    bubble.hidden = false;
-    bubble.textContent = "Set up Jeffry →";
-  }
+  if (!bubble) return;
+  if (hasAnyCompanion()) bubble.hidden = true;
+  else { bubble.hidden = false; bubble.textContent = "Add a character →"; }
 }
 
-// ---- companion spotlight overlay ----
+// ---- companion spotlight overlay (pretty view of the primary) ----
 let spotBuddy = null;
 function openSpotlight() {
   const ov = $("buddySpotlight");
@@ -222,27 +297,28 @@ function closeSpotlight() {
   ov.classList.remove("open");
   setTimeout(() => { ov.hidden = true; }, 550);
 }
-function openSetup() {
+function openSetup(opts = {}) {
   openBuddySetup($("buddyModal"), () => {
-    buddy.refresh(); refreshBuddyHint(); applyBuddyFlip();
+    buildCompanions();
     if (spotBuddy) spotBuddy.refresh();
     $("bsName").textContent = buddyName();
-  });
+    applyBuddyFlip();
+  }, opts);
 }
-// Bottom-nav: Customise opens the spotlight (or setup if no buddy yet); Flip
-// mirrors the sprite and remembers it.
-$("tabBuddy").addEventListener("click", () => { if (hasBuddy()) openSpotlight(); else openSetup(); });
-$("tabFlip").addEventListener("click", () => { saveBuddy({ flip: !loadBuddy().flip }); applyBuddyFlip(); });
+// Bottom-nav: Customise opens the spotlight (or manager if no character yet);
+// Flip mirrors the primary character.
+$("tabBuddy").addEventListener("click", () => { if (hasAnyCompanion()) openSpotlight(); else openSetup(); });
+$("tabFlip").addEventListener("click", () => { saveBuddy({ flip: !loadBuddy().flip }); buildCompanions(); applyBuddyFlip(); });
 $("bsClose").addEventListener("click", closeSpotlight);
 $("bsScrim").addEventListener("click", closeSpotlight);
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !$("buddySpotlight").hidden) closeSpotlight();
 });
-// Customise inside the overlay: close the overlay, then open setup.
-$("bsEdit").addEventListener("click", () => { closeSpotlight(); setTimeout(openSetup, 120); });
+// Manage inside the overlay: close it, then open the character manager.
+$("bsEdit").addEventListener("click", () => { closeSpotlight(); setTimeout(() => openSetup(), 120); });
 $("bmClose").addEventListener("click", () => { const m = $("buddyModal"); (m._closeBuddySetup || (() => { m.hidden = true; }))(); });
 $("bmScrim").addEventListener("click", () => { const m = $("buddyModal"); (m._closeBuddySetup || (() => { m.hidden = true; }))(); });
-refreshBuddyHint();
+buildCompanions();
 applyBuddyFlip();
 
 // ---- slots ----

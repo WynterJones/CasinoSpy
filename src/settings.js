@@ -17,7 +17,8 @@ export const DEFAULTS = {
   slots: [], // favourited OLG slots: { name, url, img } (img is a data URI or URL)
   // Pixel-art companion generated via the PixelLab API. Frames are base64 PNG
   // data URIs stored inline. When unconfigured the UI falls back to the default
-  // avatar image (a static, CSS-animated sprite).
+  // avatar image (a static, CSS-animated sprite). Legacy single-buddy field —
+  // kept for backward compatibility / migration into `companions` below.
   buddy: {
     apiKey: "", // PixelLab API key (user-supplied)
     name: "Jeffry", // companion name
@@ -29,20 +30,65 @@ export const DEFAULTS = {
     lose: [],
     createdAt: 0,
   },
+  // Multiple pixel-art characters. The PixelLab key is shared per-device; each
+  // character carries its own clips, placement and flip. `list[0]` is treated as
+  // the "primary" (shown in the session window + spotlight).
+  companions: {
+    apiKey: "", // shared PixelLab API key
+    list: [], // Character[] — see makeCharacter() shape in buddy.js
+  },
 };
+
+// Build the companions list from a legacy single `buddy` object (one-time
+// migration so existing users keep their generated character).
+function migrateBuddy(buddy) {
+  if (!buddy || !Array.isArray(buddy.idle) || !buddy.idle.length) return null;
+  return {
+    id: "c_legacy",
+    name: buddy.name || "Jeffry",
+    description: buddy.description || "",
+    characterId: buddy.characterId || null,
+    base: buddy.base || (buddy.idle && buddy.idle[0]) || null,
+    idle: buddy.idle || [],
+    win: buddy.win || [],
+    lose: buddy.lose || [],
+    emotes: [],
+    flip: !!buddy.flip,
+    pos: null,
+    size: 200,
+    hidden: false,
+    createdAt: buddy.createdAt || 0,
+  };
+}
 
 export function loadSettings() {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return { ...DEFAULTS };
     const parsed = JSON.parse(raw);
+    const buddy = { ...DEFAULTS.buddy, ...(parsed.buddy || {}) };
+    const companions = {
+      ...DEFAULTS.companions,
+      ...(parsed.companions || {}),
+      list: (parsed.companions && Array.isArray(parsed.companions.list)) ? parsed.companions.list : [],
+    };
+    // One-time migration: lift a legacy single buddy into the companions list.
+    if (!companions.list.length) {
+      const migrated = migrateBuddy(buddy);
+      if (migrated) {
+        companions.list = [migrated];
+        if (!companions.apiKey && buddy.apiKey) companions.apiKey = buddy.apiKey;
+      }
+    }
+    if (!companions.apiKey && buddy.apiKey) companions.apiKey = buddy.apiKey;
     return {
       ...DEFAULTS,
       ...parsed,
       rules: { ...DEFAULTS.rules, ...(parsed.rules || {}) },
       session: { ...DEFAULTS.session, ...(parsed.session || {}) },
       jiffrey: { ...DEFAULTS.jiffrey, ...(parsed.jiffrey || {}) },
-      buddy: { ...DEFAULTS.buddy, ...(parsed.buddy || {}) },
+      buddy,
+      companions,
     };
   } catch {
     return { ...DEFAULTS };
@@ -57,6 +103,7 @@ export function patchSettings(patch) {
   const s = loadSettings();
   const next = { ...s, ...patch };
   if (patch.rules) next.rules = { ...s.rules, ...patch.rules };
+  if (patch.companions) next.companions = { ...s.companions, ...patch.companions };
   saveSettings(next);
   return next;
 }

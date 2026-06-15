@@ -140,12 +140,15 @@
             <button class="slots-open" id="openOlg" type="button">Open OLG Casino ↗</button>
             <button class="slots-add accent" id="addSlot" type="button">+ Add slot</button>
           </div>
+          <input class="slots-search" id="slotsSearch" type="search" placeholder="Search your slots…" autocomplete="off" />
           <div class="slots-filter" id="slotsFilter">
             <button class="sf-chip active" data-cat="all" type="button">All</button>
+            <button class="sf-chip" data-cat="fav" type="button">★ Favourites</button>
             <button class="sf-chip" data-cat="Slot" type="button">Slot</button>
             <button class="sf-chip" data-cat="Arcade" type="button">Arcade</button>
             <button class="sf-chip" data-cat="Cards" type="button">Cards</button>
             <button class="sf-chip" data-cat="Live" type="button">Live</button>
+            <button class="sf-chip sf-sort" id="slotsSort" type="button" title="Sort by lowest min bet">¢ Min bet</button>
           </div>
           <div class="slots-grid" id="slotsGrid"></div>
           <p class="slots-empty" id="slotsEmpty">No slots yet. Tap <b>+ Add slot</b> to pick from OLG's catalogue.</p>
@@ -165,10 +168,9 @@
       </button>
     </div>
 
-    <!-- Bottom-right ambient pixel companion (click-through decoration) -->
-    <div class="buddy-companion" id="buddyCompanion">
+    <!-- Draggable pixel companions live here (one node per character, built in main.js) -->
+    <div class="buddy-layer" id="buddyLayer">
       <div class="buddy-bubble" id="buddyBubble" hidden></div>
-      <div class="buddy-host" id="buddyHost"></div>
     </div>
 
     <!-- Slot picker modal -->
@@ -209,6 +211,13 @@
               <button class="sm-cat" data-cat="Cards" type="button">Cards</button>
               <button class="sm-cat" data-cat="Live" type="button">Live</button>
             </div>
+            <label class="sm-label">Min bet &amp; features</label>
+            <div class="sm-feat-row">
+              <input class="sm-field sm-minbet" id="smMinBet" placeholder="Min bet e.g. $0.10" />
+              <input class="sm-field sm-minbet" id="smRtp" placeholder="RTP e.g. 96%" />
+              <label class="sm-check"><input type="checkbox" id="smBonus" /> Bonus</label>
+              <label class="sm-check"><input type="checkbox" id="smFreeSpins" /> Free spins</label>
+            </div>
             <label class="sm-label">Image (optional)</label>
             <div class="sm-img-row">
               <input class="sm-imgurl" id="smImgUrl" type="url" placeholder="Paste image URL…" />
@@ -240,7 +249,7 @@
           <img src="/assets/casinospy-poker-chip.png" alt="" />
         </div>
         <div class="bs-name" id="bsName">Jeffry</div>
-        <button class="bs-edit" id="bsEdit" type="button">Customise buddy</button>
+        <button class="bs-edit" id="bsEdit" type="button">Manage characters</button>
       </div>
     </div>
 
