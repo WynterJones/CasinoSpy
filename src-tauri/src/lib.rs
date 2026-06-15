@@ -275,8 +275,8 @@ fn open_session_overlay(app: tauri::AppHandle) -> Result<(), String> {
     }
     WebviewWindowBuilder::new(&app, "session", WebviewUrl::App("session.html".into()))
         .title("Session")
-        .inner_size(290.0, 184.0)
-        .min_inner_size(250.0, 150.0)
+        .inner_size(312.0, 480.0)
+        .min_inner_size(280.0, 400.0)
         .position(100.0, 100.0)
         .resizable(true)
         .decorations(false)

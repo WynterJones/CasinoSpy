@@ -14,6 +14,20 @@ export const DEFAULTS = {
   session: { active: false, buyIn: 0, current: 0 }, // live session counter
   sessionsHistory: [], // locked-in past sessions: { buyIn, final, result }
   jiffrey: { chats: [], activeId: null }, // saved chat threads with the butler
+  // Pixel-art companion generated via the PixelLab API. Frames are base64 PNG
+  // data URIs stored inline. When unconfigured the UI falls back to the default
+  // avatar image (a static, CSS-animated sprite).
+  buddy: {
+    apiKey: "", // PixelLab API key (user-supplied)
+    name: "Jeffry", // companion name
+    description: "", // text prompt used to generate it
+    characterId: null, // PixelLab character id (for adding more emotes later)
+    base: null, // chosen base sprite data URI (idle fallback frame)
+    idle: [], // animation frames (data URIs)
+    win: [],
+    lose: [],
+    createdAt: 0,
+  },
 };
 
 export function loadSettings() {
@@ -27,6 +41,7 @@ export function loadSettings() {
       rules: { ...DEFAULTS.rules, ...(parsed.rules || {}) },
       session: { ...DEFAULTS.session, ...(parsed.session || {}) },
       jiffrey: { ...DEFAULTS.jiffrey, ...(parsed.jiffrey || {}) },
+      buddy: { ...DEFAULTS.buddy, ...(parsed.buddy || {}) },
     };
   } catch {
     return { ...DEFAULTS };

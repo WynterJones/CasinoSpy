@@ -4,6 +4,8 @@ import {
   getSession, startSession, stopSession, adjustCurrent, setCurrent,
   winLoss, money, wlState, onSessionChange, getSessionsHistory, deleteSessionAt,
 } from "./session.js";
+import { createBuddyStage, hasBuddy, buddyName } from "./buddy.js";
+import { openBuddySetup } from "./buddy-setup.js";
 
 const $ = (id) => document.getElementById(id);
 let settings = loadSettings();
@@ -88,6 +90,7 @@ function renderSession() {
     wlEl.textContent = st.cls === "even" ? "Even · buy-in " + money(s.buyIn) : st.text + " on " + money(s.buyIn);
   }
   renderSessHistory();
+  buddy.syncFromState();
 }
 
 function renderSessHistory() {
@@ -160,6 +163,7 @@ function renderLedger() {
   const meta = $("bankMeta");
   if (meta) meta.textContent = `In ${money(dep)} (${deps.length}) · Out ${money(wd)} (${wds.length})`;
   setBadge("bankBadge", st.cls === "even" ? "Even" : st.text, st.cls);
+  buddy.syncFromState();
 }
 function addLedger(type) {
   const input = $("bkAmount");
@@ -180,6 +184,26 @@ $("ledgerList").addEventListener("click", (e) => {
   settings = patchSettings({ ledger: led });
   renderLedger();
 });
+
+// ---- pixel buddy ----
+const buddy = createBuddyStage($("buddyHost"), { size: 104 });
+function refreshBuddyHint() {
+  const bubble = $("buddyBubble");
+  if (hasBuddy()) {
+    bubble.hidden = true;
+    $("buddyCompanion").title = `${buddyName()} — click to customise`;
+  } else {
+    bubble.hidden = false;
+    bubble.textContent = "Set up Jeffry →";
+    $("buddyCompanion").title = "Create your pixel buddy";
+  }
+}
+$("buddyCompanion").addEventListener("click", () => {
+  openBuddySetup($("buddyModal"), () => { buddy.refresh(); refreshBuddyHint(); });
+});
+$("bmClose").addEventListener("click", () => { const m = $("buddyModal"); (m._closeBuddySetup || (() => { m.hidden = true; }))(); });
+$("bmScrim").addEventListener("click", () => { const m = $("buddyModal"); (m._closeBuddySetup || (() => { m.hidden = true; }))(); });
+refreshBuddyHint();
 
 // ---- init ----
 applyToForm(settings);

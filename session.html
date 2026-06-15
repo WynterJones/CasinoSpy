@@ -14,23 +14,29 @@
         <button id="closeSess" title="Close">&times;</button>
       </div>
       <div class="sess-body">
+        <div class="sess-stage"><div class="buddy-host" id="sessBuddy"></div></div>
+
         <div id="oIdle">
           <input class="sess-buyin" id="oBuyIn" type="number" min="0" step="0.01" placeholder="Buy-in $" inputmode="decimal" />
           <button id="oStart" class="primary sess-wide" type="button">Start session</button>
         </div>
+
         <div id="oLive" hidden>
-          <div class="counter big">
-            <button class="cbtn" id="oMinus" type="button">&minus;</button>
-            <div class="counter-mid">
-              <input class="counter-amt" id="oAmt" type="number" min="0" step="0.01" />
-              <div class="counter-wl even" id="oWL">Even</div>
+          <!-- Big casino-style number panel -->
+          <div class="sess-panel" id="oPanel">
+            <div class="sp-label">CURRENT</div>
+            <div class="sp-amt-row">
+              <button class="cbtn" id="oMinus" type="button">&minus;</button>
+              <div class="sp-amt"><span class="sp-cur">$</span><input class="sp-input" id="oAmt" type="number" min="0" step="0.01" /></div>
+              <button class="cbtn" id="oPlus" type="button">+</button>
             </div>
-            <button class="cbtn" id="oPlus" type="button">+</button>
+            <div class="sp-wl even" id="oWL">Even</div>
           </div>
           <div class="counter-foot">
             <label class="step-lbl">Step <input type="number" id="oStep" value="5" min="1" step="1" /></label>
             <button id="oStop" type="button">Lock in</button>
           </div>
+          <div class="sess-hist mini" id="oHist"></div>
         </div>
       </div>
     </div>
