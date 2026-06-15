@@ -1,6 +1,6 @@
 {
   "name": "casinospy",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Screen-OCR blackjack perfect-strategy overlay (Tauri + Claude Vision)",
   "type": "module",
   "scripts": {
@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.4.0",
+    "marked": "^18.0.5",
     "sharp": "^0.35.1"
   }
 }

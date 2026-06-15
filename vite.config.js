@@ -12,6 +12,8 @@ export default defineConfig({
         main: resolve(__dirname, "index.html"),
         overlay: resolve(__dirname, "overlay.html"),
         selector: resolve(__dirname, "selector.html"),
+        session: resolve(__dirname, "session.html"),
+        chat: resolve(__dirname, "chat.html"),
       },
     },
     target: "esnext",

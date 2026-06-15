@@ -11,6 +11,8 @@ export const DEFAULTS = {
   region: null, // { x, y, width, height } in physical pixels
   autoIntervalMs: 3000,
   ledger: [], // bankroll entries: { type: "deposit"|"withdrawal", amount: number }
+  session: { active: false, buyIn: 0, current: 0 }, // live session counter
+  jiffrey: { chats: [], activeId: null }, // saved chat threads with the butler
 };
 
 export function loadSettings() {
@@ -22,6 +24,8 @@ export function loadSettings() {
       ...DEFAULTS,
       ...parsed,
       rules: { ...DEFAULTS.rules, ...(parsed.rules || {}) },
+      session: { ...DEFAULTS.session, ...(parsed.session || {}) },
+      jiffrey: { ...DEFAULTS.jiffrey, ...(parsed.jiffrey || {}) },
     };
   } catch {
     return { ...DEFAULTS };

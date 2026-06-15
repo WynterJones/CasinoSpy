@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en" class="doc-clear">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Jiffrey</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body class="overlay-body">
+    <div class="chat">
+      <div class="chat-head" data-tauri-drag-region>
+        <button class="chat-menu" id="chatMenu" title="Chats" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+        <img class="chat-av" src="/assets/jiffrey.png" alt="" />
+        <div class="chat-id">
+          <b>Jiffrey</b>
+          <small>Casino butler</small>
+        </div>
+        <div class="chat-sess" id="chatSess"></div>
+        <button id="chatClose" title="Close" type="button">&times;</button>
+      </div>
+
+      <div class="chat-msgs" id="msgs"></div>
+
+      <div class="composer">
+        <textarea id="chatText" rows="1" placeholder="Ask Jiffrey about strategy, odds, or your session…"></textarea>
+        <button id="chatSend" class="send-btn" title="Send" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+      <div class="chat-note-bar">
+        <span class="chat-note">Educational &amp; responsible play. Casino games are negative-EV; slots can't be beaten by strategy.</span>
+      </div>
+
+      <!-- Chat history drawer -->
+      <div class="drawer-scrim" id="scrim" hidden></div>
+      <aside class="chat-drawer" id="drawer" hidden>
+        <div class="drawer-head">
+          <b>Your chats</b>
+          <button id="drawerClose" title="Close" type="button">&times;</button>
+        </div>
+        <button class="new-chat-btn" id="chatNew" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          New chat
+        </button>
+        <ul class="chat-list" id="chatList"></ul>
+      </aside>
+    </div>
+    <script type="module" src="/src/chat.js"></script>
+  </body>
+</html>

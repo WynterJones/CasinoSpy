@@ -105,7 +105,7 @@ async function doScan() {
   progressStep("capturing");
 
   try {
-    const raw = await invoke("scan", { region: s.region, mode: s.gameMode, model: "opus" });
+    const raw = await invoke("scan", { region: s.region, mode: s.gameMode, model: "sonnet" });
     progressStep("analyzing");
     if (s.gameMode === "videopoker") renderVideoPoker(raw, s);
     else renderBlackjack(raw, s);

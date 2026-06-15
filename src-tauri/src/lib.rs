@@ -246,6 +246,83 @@ fn open_selector(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn open_slots_data(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(w) = app.get_webview_window("slotsdata") {
+        let _ = w.set_focus();
+        return Ok(());
+    }
+    let url = tauri::Url::parse("https://olgtracker.ca/").map_err(|e| e.to_string())?;
+    WebviewWindowBuilder::new(&app, "slotsdata", WebviewUrl::External(url))
+        .title("OLG Slots Data")
+        .inner_size(430.0, 920.0)
+        .min_inner_size(360.0, 600.0)
+        .resizable(true)
+        .user_agent(
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) \
+AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+        )
+        .build()
+        .map_err(|e| format!("slots data window failed: {e}"))?;
+    Ok(())
+}
+
+#[tauri::command]
+fn open_session_overlay(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(w) = app.get_webview_window("session") {
+        let _ = w.set_focus();
+        return Ok(());
+    }
+    WebviewWindowBuilder::new(&app, "session", WebviewUrl::App("session.html".into()))
+        .title("Session")
+        .inner_size(290.0, 184.0)
+        .min_inner_size(250.0, 150.0)
+        .position(100.0, 100.0)
+        .resizable(true)
+        .decorations(false)
+        .transparent(true)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .shadow(false)
+        .build()
+        .map_err(|e| format!("session window failed: {e}"))?;
+    Ok(())
+}
+
+#[tauri::command]
+fn open_jiffrey(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(w) = app.get_webview_window("jiffrey") {
+        let _ = w.set_focus();
+        return Ok(());
+    }
+    WebviewWindowBuilder::new(&app, "jiffrey", WebviewUrl::App("chat.html".into()))
+        .title("Jiffrey")
+        .inner_size(404.0, 624.0)
+        .min_inner_size(340.0, 460.0)
+        .position(120.0, 120.0)
+        .resizable(true)
+        .decorations(false)
+        .transparent(true)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .shadow(false)
+        .build()
+        .map_err(|e| format!("jiffrey window failed: {e}"))?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn chat_reply(prompt: String, model: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
+        let claude = resolve_claude()
+            .ok_or_else(|| "Claude Code CLI not found. Install Claude Code or set CLAUDE_CLI_PATH.".to_string())?;
+        let dir = std::env::temp_dir();
+        run_claude(&claude, &prompt, &model, &dir)
+    })
+    .await
+    .map_err(|e| format!("chat task failed: {e}"))?
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -265,7 +342,10 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![scan, check_cli, open_overlay, open_selector])
+        .invoke_handler(tauri::generate_handler![
+            scan, check_cli, open_overlay, open_selector, open_slots_data,
+            open_session_overlay, open_jiffrey, chat_reply
+        ])
         .run(tauri::generate_context!())
         .expect("error while running CasinoSpy");
 }

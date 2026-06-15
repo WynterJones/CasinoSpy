@@ -16,8 +16,8 @@
             <p class="subtitle">Perfect blackjack &amp; video-poker strategy.</p>
           </div>
         </div>
-        <div class="bank-badge even" id="bankBadge" title="Bankroll net">
-          <span class="bb-arrow">＝</span>
+        <div class="bank-badge even" id="bankBadge" title="Session net">
+          <span class="bb-arrow">=</span>
           <span class="bb-val">Even</span>
         </div>
         <div class="brand-shine"></div>
@@ -27,19 +27,19 @@
       <div class="mode-tiles">
         <button type="button" class="mode-tile" data-mode="blackjack">
           <img src="/assets/mode-blackjack.png" alt="Blackjack" />
-          <span class="mode-check">✓</span>
+          <span class="mode-check">&#10003;</span>
           <span class="mode-name">Blackjack</span>
         </button>
         <button type="button" class="mode-tile" data-mode="videopoker">
           <img src="/assets/mode-videopoker.png" alt="Video Poker" />
-          <span class="mode-check">✓</span>
+          <span class="mode-check">&#10003;</span>
           <span class="mode-name">Video Poker</span>
         </button>
       </div>
 
-      <!-- Blackjack rules (collapsible) -->
+      <!-- Blackjack rules -->
       <details class="collapse" id="bjRules" open>
-        <summary><span class="ic">♠</span> Blackjack rules</summary>
+        <summary><span class="ic">S</span> Blackjack rules</summary>
         <div class="collapse-body">
           <div class="row">
             <label for="decks">Decks</label>
@@ -55,26 +55,16 @@
             </div>
           </div>
           <div class="toggles">
-            <label class="switch">
-              <span class="switch-label">Dealer hits soft 17</span>
-              <input type="checkbox" id="h17" /><span class="track"></span>
-            </label>
-            <label class="switch">
-              <span class="switch-label">Double after split</span>
-              <input type="checkbox" id="das" checked /><span class="track"></span>
-            </label>
-            <label class="switch">
-              <span class="switch-label">Late surrender</span>
-              <input type="checkbox" id="surrender" checked /><span class="track"></span>
-            </label>
+            <label class="switch"><span class="switch-label">Dealer hits soft 17</span><input type="checkbox" id="h17" /><span class="track"></span></label>
+            <label class="switch"><span class="switch-label">Double after split</span><input type="checkbox" id="das" checked /><span class="track"></span></label>
+            <label class="switch"><span class="switch-label">Late surrender</span><input type="checkbox" id="surrender" checked /><span class="track"></span></label>
           </div>
-          <div class="hint">OLG / RNG video blackjack effectively uses an unlimited shoe — pick <b>Unlimited</b> and match the soft-17 rule.</div>
         </div>
       </details>
 
-      <!-- Video poker pay table (collapsible) -->
+      <!-- Video poker pay table -->
       <details class="collapse" id="vpRules" open hidden>
-        <summary><span class="ic">◆</span> Video poker pay table</summary>
+        <summary><span class="ic">D</span> Video poker pay table</summary>
         <div class="collapse-body">
           <div class="row">
             <label for="vpPaytable">Game King title</label>
@@ -92,18 +82,58 @@
               </select>
             </div>
           </div>
-          <div class="hint">Exact max-EV hold for the selected Game King title (incl. Deuces &amp; Joker wilds). Match it to the machine's posted pay table.</div>
+        </div>
+      </details>
+
+      <!-- Baccarat reference -->
+      <details class="collapse" id="baccaratCard">
+        <summary><span class="ic">C</span> Baccarat &mdash; best bets</summary>
+        <div class="collapse-body">
+          <div class="bac-bets">
+            <div class="bac-bet best"><span class="bac-name">Banker</span><span class="bac-edge">1.06% house edge</span><span class="bac-tag">BEST</span></div>
+            <div class="bac-bet"><span class="bac-name">Player</span><span class="bac-edge">1.24% house edge</span></div>
+            <div class="bac-bet avoid"><span class="bac-name">Tie</span><span class="bac-edge">~14.4% house edge</span><span class="bac-tag">AVOID</span></div>
+          </div>
+          <div class="hint">Baccarat has <b>no in-hand decisions</b> &mdash; cards draw by fixed rules. Your only choice is the bet: <b>always Banker</b> (lowest edge, even after the ~5% commission on wins). Skip Tie and side bets. Your session tracker and Jiffrey work here too.</div>
+        </div>
+      </details>
+
+      <!-- Live session -->
+      <details class="collapse" id="sessionCard" open>
+        <summary><span class="ic">$</span> Session <span class="bk-net-chip even" id="sessChip">Off</span></summary>
+        <div class="collapse-body">
+          <div id="sessIdle">
+            <div class="row">
+              <label for="buyIn">Buy-in</label>
+              <div class="control"><input type="number" id="buyIn" placeholder="Starting amount" min="0" step="0.01" inputmode="decimal" /></div>
+            </div>
+            <button id="startSession" class="primary sess-wide" type="button">Start session</button>
+          </div>
+          <div id="sessLive" hidden>
+            <div class="counter">
+              <button class="cbtn" id="sessMinus" type="button">&minus;</button>
+              <div class="counter-mid">
+                <input class="counter-amt" id="sessAmt" type="number" min="0" step="0.01" />
+                <div class="counter-wl even" id="sessWL">Even</div>
+              </div>
+              <button class="cbtn" id="sessPlus" type="button">+</button>
+            </div>
+            <div class="counter-foot">
+              <label class="step-lbl">Step <input type="number" id="sessStep" value="5" min="1" step="1" /></label>
+              <button id="stopSession" type="button">Stop session</button>
+            </div>
+          </div>
         </div>
       </details>
 
       <!-- Bankroll tracker -->
       <details class="collapse" id="bankroll">
-        <summary><span class="ic">$</span> Bankroll <span class="bk-net-chip" id="netChip">Even</span></summary>
+        <summary><span class="ic">B</span> Bankroll <span class="bk-net-chip" id="netChip">Even</span></summary>
         <div class="collapse-body">
           <div class="ledger-add">
             <input type="number" id="bkAmount" placeholder="Amount" min="0" step="0.01" inputmode="decimal" />
-            <button id="addDeposit" class="accent" type="button">＋ Deposit</button>
-            <button id="addWithdraw" type="button">－ Withdraw</button>
+            <button id="addDeposit" class="accent" type="button">Deposit</button>
+            <button id="addWithdraw" type="button">Withdraw</button>
           </div>
           <ul class="ledger" id="ledgerList"></ul>
           <div class="ledger-totals">
@@ -114,15 +144,37 @@
         </div>
       </details>
 
+      <!-- Jiffrey launcher -->
+      <button class="jiffrey-btn" id="openJiffrey" type="button">
+        <img src="/assets/jiffrey.png" alt="" />
+        <span class="jb-text">
+          <b>Ask Jiffrey</b>
+          <small>Your casino butler &amp; session guide</small>
+        </span>
+        <span class="jb-go">&rsaquo;</span>
+      </button>
     </div>
 
-    <!-- Fixed action dock -->
+    <!-- Mobile-style icon tab bar -->
     <div class="dock">
-      <div class="dock-actions">
-        <button id="pickRegion" class="accent"><span class="btn-icon">◎</span> Pick region <span class="region-status" id="regionStatus">✗</span></button>
-        <button id="launchOverlay" class="primary"><span class="btn-icon">♠</span> Open overlay</button>
-      </div>
       <div id="status" class="status"></div>
+      <nav class="tabbar">
+        <button class="tab" id="tabRegion" data-tip="Pick region" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>
+        </button>
+        <button class="tab" id="tabOverlay" data-tip="Strategy overlay" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="6.5" width="10" height="13.5" rx="2" transform="rotate(-9 8.5 13.2)"/><rect x="10" y="4" width="10" height="13.5" rx="2" transform="rotate(9 15 10.7)"/></svg>
+        </button>
+        <button class="tab" id="tabSession" data-tip="Session counter" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="13.5" r="7"/><path d="M12 13.5l3-2.2M12 6.5V4M9.5 4h5"/></svg>
+        </button>
+        <button class="tab" id="tabSlots" data-tip="OLG slots data" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21h18"/><path d="M6 21V12M12 21V5M18 21v-7"/></svg>
+        </button>
+        <button class="tab tab-jiffrey" id="tabJiffrey" data-tip="Ask Jiffrey" type="button">
+          <img class="tab-av" src="/assets/jiffrey.png" alt="" />
+        </button>
+      </nav>
     </div>
 
     <script type="module" src="/src/main.js"></script>

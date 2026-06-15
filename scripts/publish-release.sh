@@ -10,8 +10,8 @@
 set -euo pipefail
 
 REPO="WynterJones/CasinoSpy"
-TAG="v0.2.0"
-DMG="src-tauri/target/release/bundle/dmg/CasinoSpy_0.2.0_aarch64.dmg"
+TAG="v0.3.0"
+DMG="src-tauri/target/release/bundle/dmg/CasinoSpy_0.3.0_aarch64.dmg"
 cd "$(dirname "$0")/.."
 
 # Resolve a token: env -> gh CLI -> keychain.
@@ -34,7 +34,7 @@ echo "release id: ${REL_ID}"
 echo "==> Uploading DMG"
 curl -fsS -H "Authorization: token $TOKEN" -H "Content-Type: application/x-apple-diskimage" \
   --data-binary @"$DMG" \
-  "https://uploads.github.com/repos/${REPO}/releases/${REL_ID}/assets?name=CasinoSpy_0.2.0_aarch64.dmg" \
+  "https://uploads.github.com/repos/${REPO}/releases/${REL_ID}/assets?name=CasinoSpy_0.3.0_aarch64.dmg" \
   >/dev/null && echo "Uploaded $DMG"
 
 echo "Done -> https://github.com/${REPO}/releases/tag/${TAG}"
