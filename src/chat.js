@@ -2,14 +2,23 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { marked } from "marked";
 import { loadSettings, patchSettings } from "./settings.js";
-import {
-  getSession, startSession, adjustCurrent, setCurrent,
-  winLoss, money, wlState, onSessionChange,
-} from "./session.js";
+import { getSession, winLoss, money, wlState, onSessionChange } from "./session.js";
+import { hasBuddy, loadBuddy } from "./buddy.js";
 
 const $ = (id) => document.getElementById(id);
 const win = getCurrentWindow();
 const CHAT_MODEL = "sonnet";
+
+// Use the user's pixel buddy (static frame) as Jiffrey's avatar when available,
+// otherwise the default butler portrait.
+function avatarSrc() {
+  if (hasBuddy()) {
+    const b = loadBuddy();
+    return (b.idle && b.idle[0]) || b.base || "/assets/jiffrey.png";
+  }
+  return "/assets/jiffrey.png";
+}
+const AVATAR = avatarSrc();
 
 const GREETING =
   "Good evening — **Jiffrey** at your service. Set a buy-in to start a session, then tell me what you're playing.";
@@ -63,7 +72,7 @@ function renderMsgs() {
     const row = document.createElement("div");
     row.className = "msg " + (m.role === "assistant" ? "from-jiffrey" : "from-user");
     row.innerHTML = m.role === "assistant"
-      ? `<img class="msg-av" src="/assets/jiffrey.png" alt="" /><div class="bubble">${marked.parse(m.content)}</div>`
+      ? `<img class="msg-av" src="${AVATAR}" alt="" /><div class="bubble">${marked.parse(m.content)}</div>`
       : `<div class="bubble">${escapeHtml(m.content)}</div>`;
     wrap.appendChild(row);
   }
@@ -107,32 +116,21 @@ $("drawerClose").addEventListener("click", closeDrawer);
 $("scrim").addEventListener("click", closeDrawer);
 $("chatNewHdr").addEventListener("click", () => { newThread(store); saveStore(store); renderMsgs(); renderList(); closeDrawer(); });
 
-// ---------- session box ----------
+// ---------- session button (opens the session counter window) ----------
 function renderSess() {
   const box = $("chatSess");
   const s = getSession();
-  if (!s.active) {
-    box.className = "chat-sess idle";
-    box.innerHTML = `<input class="sess-buyin sm" id="cBuy" type="number" min="0" step="0.01" placeholder="Buy-in $" />
-      <button class="mini" id="cStart" type="button">Start</button>`;
-    $("cStart").onclick = () => {
-      const b = parseFloat($("cBuy").value);
-      if (!Number.isFinite(b) || b < 0) { $("cBuy").focus(); return; }
-      startSession(b); renderSess();
-    };
-    return;
+  let label = "Session", cls = "idle";
+  if (s.active) {
+    const st = wlState(winLoss(s));
+    cls = "live " + st.cls;
+    label = st.cls === "even" ? "Even" : st.text;
   }
-  const st = wlState(winLoss(s));
-  box.className = "chat-sess live " + st.cls;
-  box.innerHTML = `<button class="mini cbtn" id="cMinus" type="button">&minus;</button>
-    <div class="cs-mid"><input class="cs-amt" id="cAmt" type="number" min="0" step="0.01" />
-    <span class="cs-wl">${st.cls === "even" ? "Even" : st.text}</span></div>
-    <button class="mini cbtn" id="cPlus" type="button">+</button>`;
-  const amt = $("cAmt");
-  if (document.activeElement !== amt) amt.value = s.current.toFixed(2);
-  $("cPlus").onclick = () => { adjustCurrent(5); renderSess(); };
-  $("cMinus").onclick = () => { adjustCurrent(-5); renderSess(); };
-  amt.onchange = () => { setCurrent(amt.value); renderSess(); };
+  box.className = "chat-sess btn " + cls;
+  box.innerHTML = `<button class="chat-sess-btn" id="cSessBtn" type="button" title="Open session counter">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="13.5" r="7"/><path d="M12 13.5l3-2.2M12 6.5V4M9.5 4h5"/></svg>
+    <span>${label}</span></button>`;
+  $("cSessBtn").onclick = () => invoke("open_session_overlay");
 }
 
 function sessionContext() {
@@ -167,7 +165,7 @@ async function send() {
   const wrap = $("msgs");
   const typing = document.createElement("div");
   typing.className = "msg from-jiffrey";
-  typing.innerHTML = `<img class="msg-av" src="/assets/jiffrey.png" alt="" /><div class="bubble typing"><span></span><span></span><span></span></div>`;
+  typing.innerHTML = `<img class="msg-av" src="${AVATAR}" alt="" /><div class="bubble typing"><span></span><span></span><span></span></div>`;
   wrap.appendChild(typing);
   wrap.scrollTop = wrap.scrollHeight;
 
@@ -193,6 +191,9 @@ $("chatText").addEventListener("input", autoGrow);
 $("chatText").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
 $("chatClose").addEventListener("click", () => win.close());
 onSessionChange(renderSess);
+
+const headAv = document.querySelector(".chat-av");
+if (headAv) headAv.src = AVATAR;
 
 renderMsgs();
 renderSess();

@@ -145,9 +145,31 @@
         </div>
       </details>
 
+      <!-- OLG Slots -->
+      <details class="collapse" id="slotsCard">
+        <summary><span class="ic">S</span> My Slots <span class="bk-meta" id="slotsMeta"></span></summary>
+        <div class="collapse-body">
+          <div class="slots-actions">
+            <button class="slots-open" id="openOlg" type="button">Open OLG Casino ↗</button>
+            <button class="slots-add accent" id="addSlot" type="button">+ Add slot</button>
+          </div>
+          <div class="slots-filter" id="slotsFilter">
+            <button class="sf-chip active" data-cat="all" type="button">All</button>
+            <button class="sf-chip" data-cat="Slot" type="button">Slot</button>
+            <button class="sf-chip" data-cat="Arcade" type="button">Arcade</button>
+            <button class="sf-chip" data-cat="Cards" type="button">Cards</button>
+            <button class="sf-chip" data-cat="Live" type="button">Live</button>
+          </div>
+          <div class="slots-grid" id="slotsGrid"></div>
+          <p class="slots-empty" id="slotsEmpty">No slots yet. Tap <b>+ Add slot</b> to pick from OLG's catalogue.</p>
+        </div>
+      </details>
+
       <!-- Jiffrey launcher -->
       <button class="jiffrey-btn" id="openJiffrey" type="button">
-        <img src="/assets/jiffrey.png" alt="" />
+        <span class="jb-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.9-.9L3 21l1.9-5.6A8.5 8.5 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5z"/></svg>
+        </span>
         <span class="jb-text">
           <b>Open Chat</b>
           <small>Your casino butler &amp; session guide</small>
@@ -156,11 +178,59 @@
       </button>
     </div>
 
-    <!-- Bottom-centre animated pixel companion -->
-    <button class="buddy-companion" id="buddyCompanion" type="button" title="Your pixel buddy">
+    <!-- Bottom-right ambient pixel companion (click-through decoration) -->
+    <div class="buddy-companion" id="buddyCompanion">
       <div class="buddy-bubble" id="buddyBubble" hidden></div>
       <div class="buddy-host" id="buddyHost"></div>
-    </button>
+    </div>
+
+    <!-- Slot picker modal -->
+    <div class="slot-modal" id="slotModal" hidden>
+      <div class="sm-scrim" id="smScrim"></div>
+      <div class="sm-card">
+        <div class="sm-head">
+          <h3 id="smTitle">Add a slot</h3>
+          <button class="sm-x" id="smClose" type="button" title="Close">&times;</button>
+        </div>
+        <div class="sm-body">
+          <!-- Step 1: pick a game from the OLG catalogue -->
+          <div id="smPick">
+            <div class="sm-url-row">
+              <input class="sm-urlin" id="smUrl" type="url" placeholder="Paste an OLG game URL…" autocomplete="off" />
+              <button class="sm-urlgo accent" id="smUrlGo" type="button">Add</button>
+            </div>
+            <div class="sm-or">or search the catalogue</div>
+            <input class="sm-search" id="smSearch" type="search" placeholder="Search OLG slots…" autocomplete="off" />
+            <div class="sm-status" id="smStatus">Loading OLG catalogue…</div>
+            <ul class="sm-results" id="smResults"></ul>
+          </div>
+          <!-- Step 2: choose an image + confirm -->
+          <div id="smConfig" hidden>
+            <div class="sm-chosen">
+              <div class="sm-thumb" id="smThumb"></div>
+              <div class="sm-chosen-name" id="smChosenName"></div>
+            </div>
+            <label class="sm-label">Category</label>
+            <div class="sm-cats" id="smCats">
+              <button class="sm-cat active" data-cat="Slot" type="button">Slot</button>
+              <button class="sm-cat" data-cat="Arcade" type="button">Arcade</button>
+              <button class="sm-cat" data-cat="Cards" type="button">Cards</button>
+              <button class="sm-cat" data-cat="Live" type="button">Live</button>
+            </div>
+            <label class="sm-label">Image (optional)</label>
+            <div class="sm-img-row">
+              <input class="sm-imgurl" id="smImgUrl" type="url" placeholder="Paste image URL…" />
+              <button class="sm-file-btn" id="smFileBtn" type="button">Choose file</button>
+              <input id="smFile" type="file" accept="image/*" hidden />
+            </div>
+            <div class="sm-actions">
+              <button class="sm-back" id="smBack" type="button">‹ Back</button>
+              <button class="sm-save accent" id="smSave" type="button">Add slot</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Companion spotlight overlay -->
     <div class="buddy-spotlight" id="buddySpotlight" hidden>
@@ -207,6 +277,12 @@
         </button>
         <button class="tab" id="tabSlots" data-tip="OLG slots data" type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21h18"/><path d="M6 21V12M12 21V5M18 21v-7"/></svg>
+        </button>
+        <button class="tab" id="tabBuddy" data-tip="Customise character" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.3L18 8l-3 3 .8 4.6L12 13.5 8.2 15.6 9 11 6 8l4.1-.7z"/></svg>
+        </button>
+        <button class="tab" id="tabFlip" data-tip="Flip character" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M8 7l-4 4 4 4"/><path d="M16 7l4 4-4 4"/></svg>
         </button>
         <button class="tab tab-jiffrey" id="tabJiffrey" data-tip="Ask Jiffrey" type="button">
           <img class="tab-av" src="/assets/jiffrey.png" alt="" />

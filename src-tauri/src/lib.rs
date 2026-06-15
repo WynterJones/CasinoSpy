@@ -1,6 +1,6 @@
 use image::codecs::png::PngEncoder;
 use image::{imageops, ExtendedColorType, ImageEncoder};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
@@ -267,6 +267,256 @@ AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1
     Ok(())
 }
 
+#[derive(Serialize)]
+struct OlgGame {
+    name: String,
+    url: String,
+}
+
+const DESKTOP_UA: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) \
+AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+
+fn decode_entities(s: &str) -> String {
+    s.replace("&amp;", "&")
+        .replace("&#39;", "'")
+        .replace("&#039;", "'")
+        .replace("&rsquo;", "\u{2019}")
+        .replace("&apos;", "'")
+        .replace("&quot;", "\"")
+        .replace("&nbsp;", " ")
+}
+
+// Scrape the OLG all-casino-games catalogue (server-rendered <a> links) into a
+// deduped, alphabetised list of { name, full play URL }.
+#[tauri::command]
+fn fetch_olg_games() -> Result<Vec<OlgGame>, String> {
+    let body = ureq::get("https://www.olg.ca/en/casino/all-casino-games.html")
+        .set("User-Agent", DESKTOP_UA)
+        .set("Accept", "text/html")
+        .timeout(std::time::Duration::from_secs(20))
+        .call()
+        .map_err(|e| format!("OLG request failed: {e}"))?
+        .into_string()
+        .map_err(|e| format!("OLG read failed: {e}"))?;
+
+    let link = regex::Regex::new(r#"(?s)<a[^>]+href="(/en/casino/play-[^"]+\.html)"[^>]*>(.*?)</a>"#)
+        .map_err(|e| e.to_string())?;
+    let tags = regex::Regex::new(r"<[^>]+>").map_err(|e| e.to_string())?;
+
+    // Each game has several anchors for the same URL (a "Learn More" and a
+    // "Play Now" CTA plus the real title link). Keep the longest non-generic
+    // text per URL as the display name.
+    let generic = |s: &str| {
+        matches!(
+            s.to_lowercase().trim(),
+            "" | "learn more" | "play now" | "play" | "demo" | "real" | "play for free" | "try demo"
+        )
+    };
+    let mut best: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    for cap in link.captures_iter(&body) {
+        let path = cap[1].to_string();
+        let inner = tags.replace_all(&cap[2], " ");
+        let text = decode_entities(inner.split_whitespace().collect::<Vec<_>>().join(" ").trim());
+        if generic(&text) {
+            continue;
+        }
+        best.entry(path)
+            .and_modify(|cur| {
+                if text.len() > cur.len() {
+                    *cur = text.clone();
+                }
+            })
+            .or_insert(text);
+    }
+
+    let mut out: Vec<OlgGame> = best
+        .into_iter()
+        .map(|(path, name)| OlgGame {
+            name,
+            url: format!("https://www.olg.ca{path}"),
+        })
+        .collect();
+    if out.is_empty() {
+        return Err("No games found — OLG page layout may have changed.".into());
+    }
+    out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    Ok(out)
+}
+
+#[derive(Serialize)]
+struct OlgDetail {
+    name: String,
+    img: String,
+}
+
+// Pull the `content="..."` out of the first <meta> tag bearing the given
+// og:/twitter: key (attribute order independent).
+fn meta_content(body: &str, key: &str) -> Option<String> {
+    let tag = regex::Regex::new(&format!(
+        r#"(?is)<meta[^>]*(?:property|name)="{}"[^>]*>"#,
+        regex::escape(key)
+    ))
+    .ok()?;
+    let m = tag.find(body)?;
+    let content = regex::Regex::new(r#"(?is)content="([^"]*)""#).ok()?;
+    let cap = content.captures(m.as_str())?;
+    Some(decode_entities(cap[1].trim()))
+}
+
+// "Trinity Pots Rising Wilds – Bonus Pot Slot – Play on OLG.ca" -> "Trinity Pots Rising Wilds".
+fn clean_title(t: &str) -> String {
+    let mut s = t.to_string();
+    for sep in [" \u{2013} ", " \u{2014} ", " | ", " - "] {
+        if let Some(i) = s.find(sep) {
+            s.truncate(i);
+        }
+    }
+    s.trim().to_string()
+}
+
+// Download an image and re-encode it as a small JPEG data URI so favourites stay
+// light in localStorage.
+fn download_thumb(url: &str) -> Option<String> {
+    use std::io::Read;
+    let resp = ureq::get(url)
+        .set("User-Agent", DESKTOP_UA)
+        .timeout(std::time::Duration::from_secs(15))
+        .call()
+        .ok()?;
+    let mut bytes = Vec::new();
+    resp.into_reader()
+        .take(12_000_000)
+        .read_to_end(&mut bytes)
+        .ok()?;
+    let img = image::load_from_memory(&bytes).ok()?;
+    // Flatten to RGB — JPEG can't carry an alpha channel.
+    let thumb = image::DynamicImage::ImageRgb8(img.thumbnail(360, 360).to_rgb8());
+    let mut out = std::io::Cursor::new(Vec::new());
+    thumb.write_to(&mut out, image::ImageFormat::Jpeg).ok()?;
+    use base64::Engine;
+    let b64 = base64::engine::general_purpose::STANDARD.encode(out.get_ref());
+    Some(format!("data:image/jpeg;base64,{b64}"))
+}
+
+// Scrape a single OLG game page for its title + preview image (downloaded inline).
+#[tauri::command]
+fn fetch_olg_game(url: String) -> Result<OlgDetail, String> {
+    if !url.contains("/casino/play-") {
+        return Err("Not an OLG game URL.".into());
+    }
+    let clean = url
+        .split('#')
+        .next()
+        .unwrap_or(&url)
+        .split('?')
+        .next()
+        .unwrap_or(&url)
+        .to_string();
+    let body = ureq::get(&clean)
+        .set("User-Agent", DESKTOP_UA)
+        .timeout(std::time::Duration::from_secs(20))
+        .call()
+        .map_err(|e| format!("OLG request failed: {e}"))?
+        .into_string()
+        .map_err(|e| format!("OLG read failed: {e}"))?;
+
+    let name = meta_content(&body, "og:title")
+        .or_else(|| meta_content(&body, "twitter:title"))
+        .map(|t| clean_title(&t))
+        .filter(|t| !t.is_empty())
+        .unwrap_or_default();
+
+    let img = meta_content(&body, "og:image")
+        .or_else(|| meta_content(&body, "twitter:image"))
+        .map(|u| {
+            if u.starts_with('/') {
+                format!("https://www.olg.ca{u}")
+            } else {
+                u
+            }
+        })
+        .and_then(|u| download_thumb(&u))
+        .unwrap_or_default();
+
+    Ok(OlgDetail { name, img })
+}
+
+const OLG_FAV_SCRIPT: &str = r#"
+(function(){
+  if (window.__casinospyFav) return;
+  window.__casinospyFav = true;
+  function onPlay(){ return /\/casino\/play-/.test(location.pathname); }
+  function gameName(){
+    var t=(document.title||'').replace(/\s*[|–—\-].*$/,'').trim();
+    if(t && t.toLowerCase()!=='olg' && t.length>1) return t;
+    var m=location.pathname.match(/play-([^.\/]+)\.html/);
+    return m? m[1].replace(/-/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();}) : 'Slot';
+  }
+  function toast(msg){
+    var t=document.createElement('div'); t.textContent=msg;
+    t.style.cssText='position:fixed;left:50%;bottom:86px;transform:translateX(-50%);z-index:2147483647;background:rgba(8,30,21,.97);color:#fff6db;border:1px solid #f2c94c;padding:9px 16px;border-radius:999px;font:700 13px system-ui;box-shadow:0 10px 26px rgba(0,0,0,.5)';
+    document.body.appendChild(t); setTimeout(function(){ t.remove(); },1900);
+  }
+  function emitFav(){
+    var payload={url:location.href,name:gameName()};
+    try{ if(window.__TAURI__&&window.__TAURI__.event&&window.__TAURI__.event.emit){ window.__TAURI__.event.emit('olg-add-fav',payload); return true; } }catch(e){}
+    try{ if(window.__TAURI_INTERNALS__&&window.__TAURI_INTERNALS__.invoke){ window.__TAURI_INTERNALS__.invoke('plugin:event|emit',{event:'olg-add-fav',payload:payload}); return true; } }catch(e){}
+    return false;
+  }
+  function sync(){ var b=document.getElementById('cspy-fav'); if(b) b.style.display=onPlay()?'flex':'none'; }
+  function mk(){
+    if(document.getElementById('cspy-fav')) return;
+    var b=document.createElement('button'); b.id='cspy-fav';
+    b.innerHTML='★ Add to Favourites';
+    b.style.cssText='position:fixed;right:18px;bottom:18px;z-index:2147483647;align-items:center;gap:8px;background:linear-gradient(180deg,#f6d26a,#d9a93a);color:#2a1d04;border:1px solid rgba(255,255,255,.4);padding:12px 18px;border-radius:999px;font:800 14px system-ui;cursor:pointer;box-shadow:0 10px 26px rgba(0,0,0,.5)';
+    b.onmouseenter=function(){ b.style.filter='brightness(1.06)'; };
+    b.onmouseleave=function(){ b.style.filter='none'; };
+    b.onclick=function(){ if(emitFav()) toast('✓ Added to CasinoSpy favourites'); else toast('Could not add — try again'); };
+    document.body.appendChild(b); sync();
+  }
+  function boot(){ mk(); }
+  if(document.body) boot(); else document.addEventListener('DOMContentLoaded', boot);
+  window.addEventListener('hashchange', sync);
+  window.addEventListener('popstate', sync);
+  setTimeout(sync, 1500);
+})();
+"#;
+
+// Open any external URL in its own native window (used for the OLG catalogue and
+// for launching individual slots in demo/real mode).
+#[tauri::command]
+fn open_url(app: tauri::AppHandle, label: String, url: String, title: String) -> Result<(), String> {
+    let mut safe: String = label
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
+        .collect();
+    if safe.is_empty() {
+        safe = "ext".into();
+    }
+    if let Some(w) = app.get_webview_window(&safe) {
+        let _ = w.set_focus();
+        return Ok(());
+    }
+    let u = tauri::Url::parse(&url).map_err(|e| format!("bad url: {e}"))?;
+    // Inject the "Add to Favourites" button only in the OLG catalogue window — not
+    // in the per-game demo/real play windows.
+    let is_olg = u.host_str().map(|h| h.contains("olg.ca")).unwrap_or(false);
+    let is_catalogue = is_olg && !u.path().contains("/casino/play-");
+    let mut builder = WebviewWindowBuilder::new(&app, &safe, WebviewUrl::External(u))
+        .title(&title)
+        .inner_size(1120.0, 800.0)
+        .min_inner_size(420.0, 520.0)
+        .resizable(true)
+        .user_agent(DESKTOP_UA);
+    if is_catalogue {
+        builder = builder.initialization_script(OLG_FAV_SCRIPT);
+    }
+    builder
+        .build()
+        .map_err(|e| format!("window failed: {e}"))?;
+    Ok(())
+}
+
 #[tauri::command]
 fn open_session_overlay(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(w) = app.get_webview_window("session") {
@@ -344,7 +594,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             scan, check_cli, open_overlay, open_selector, open_slots_data,
-            open_session_overlay, open_jiffrey, chat_reply
+            open_session_overlay, open_jiffrey, chat_reply,
+            fetch_olg_games, fetch_olg_game, open_url
         ])
         .run(tauri::generate_context!())
         .expect("error while running CasinoSpy");

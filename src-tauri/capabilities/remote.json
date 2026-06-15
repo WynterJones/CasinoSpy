@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "remote-olg",
+  "description": "Let OLG pages emit the add-to-favourite event back to the app.",
+  "windows": ["*"],
+  "remote": {
+    "urls": ["https://www.olg.ca", "https://*.olg.ca"]
+  },
+  "permissions": ["core:event:allow-emit", "core:event:allow-listen"]
+}

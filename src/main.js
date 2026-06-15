@@ -4,7 +4,8 @@ import {
   getSession, startSession, stopSession, adjustCurrent, setCurrent,
   winLoss, money, wlState, onSessionChange, getSessionsHistory, deleteSessionAt,
 } from "./session.js";
-import { createBuddyStage, hasBuddy, buddyName } from "./buddy.js";
+import { createBuddyStage, hasBuddy, buddyName, loadBuddy, saveBuddy } from "./buddy.js";
+import { initSlots } from "./slots.js";
 import { openBuddySetup } from "./buddy-setup.js";
 
 const $ = (id) => document.getElementById(id);
@@ -185,19 +186,26 @@ $("ledgerList").addEventListener("click", (e) => {
   renderLedger();
 });
 
-// ---- pixel buddy ----
+// ---- pixel buddy (ambient, click-through decoration) ----
 const buddy = createBuddyStage($("buddyHost"), { size: 220 });
+
+// Persisted left/right flip, applied to every buddy stage.
+function applyBuddyFlip() {
+  const on = !!loadBuddy().flip;
+  $("buddyHost").classList.toggle("flip", on);
+  const bs = $("bsBuddy");
+  if (bs) bs.classList.toggle("flip", on);
+}
 function refreshBuddyHint() {
   const bubble = $("buddyBubble");
   if (hasBuddy()) {
     bubble.hidden = true;
-    $("buddyCompanion").title = `${buddyName()} — click to customise`;
   } else {
     bubble.hidden = false;
     bubble.textContent = "Set up Jeffry →";
-    $("buddyCompanion").title = "Create your pixel buddy";
   }
 }
+
 // ---- companion spotlight overlay ----
 let spotBuddy = null;
 function openSpotlight() {
@@ -206,7 +214,7 @@ function openSpotlight() {
   ov.hidden = false;
   if (!spotBuddy) spotBuddy = createBuddyStage($("bsBuddy"), { size: 300, reactMs: 2200 });
   else spotBuddy.refresh();
-  // next frame so the transition plays from the hidden state
+  applyBuddyFlip();
   requestAnimationFrame(() => requestAnimationFrame(() => ov.classList.add("open")));
 }
 function closeSpotlight() {
@@ -214,22 +222,31 @@ function closeSpotlight() {
   ov.classList.remove("open");
   setTimeout(() => { ov.hidden = true; }, 550);
 }
-$("buddyCompanion").addEventListener("click", openSpotlight);
+function openSetup() {
+  openBuddySetup($("buddyModal"), () => {
+    buddy.refresh(); refreshBuddyHint(); applyBuddyFlip();
+    if (spotBuddy) spotBuddy.refresh();
+    $("bsName").textContent = buddyName();
+  });
+}
+// Bottom-nav: Customise opens the spotlight (or setup if no buddy yet); Flip
+// mirrors the sprite and remembers it.
+$("tabBuddy").addEventListener("click", () => { if (hasBuddy()) openSpotlight(); else openSetup(); });
+$("tabFlip").addEventListener("click", () => { saveBuddy({ flip: !loadBuddy().flip }); applyBuddyFlip(); });
 $("bsClose").addEventListener("click", closeSpotlight);
 $("bsScrim").addEventListener("click", closeSpotlight);
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !$("buddySpotlight").hidden) closeSpotlight();
 });
-$("bsEdit").addEventListener("click", () => {
-  openBuddySetup($("buddyModal"), () => {
-    buddy.refresh(); refreshBuddyHint();
-    if (spotBuddy) spotBuddy.refresh();
-    $("bsName").textContent = buddyName();
-  });
-});
+// Customise inside the overlay: close the overlay, then open setup.
+$("bsEdit").addEventListener("click", () => { closeSpotlight(); setTimeout(openSetup, 120); });
 $("bmClose").addEventListener("click", () => { const m = $("buddyModal"); (m._closeBuddySetup || (() => { m.hidden = true; }))(); });
 $("bmScrim").addEventListener("click", () => { const m = $("buddyModal"); (m._closeBuddySetup || (() => { m.hidden = true; }))(); });
 refreshBuddyHint();
+applyBuddyFlip();
+
+// ---- slots ----
+initSlots();
 
 // ---- init ----
 applyToForm(settings);

@@ -14,6 +14,7 @@ export const DEFAULTS = {
   session: { active: false, buyIn: 0, current: 0 }, // live session counter
   sessionsHistory: [], // locked-in past sessions: { buyIn, final, result }
   jiffrey: { chats: [], activeId: null }, // saved chat threads with the butler
+  slots: [], // favourited OLG slots: { name, url, img } (img is a data URI or URL)
   // Pixel-art companion generated via the PixelLab API. Frames are base64 PNG
   // data URIs stored inline. When unconfigured the UI falls back to the default
   // avatar image (a static, CSS-animated sprite).
