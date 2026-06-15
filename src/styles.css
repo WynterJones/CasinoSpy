@@ -980,3 +980,95 @@ html, body { height: 100%; overflow: hidden; }
 .toggles { gap: 7px; }
 .switch { padding: 9px 13px; }
 .collapse .hint { margin-top: 8px; }
+
+/* ---------------- Bankroll tracker ---------------- */
+/* default view fits with no scrollbar; allow scroll only when blocks expand */
+html { height: 100%; overflow: hidden; }
+body { height: 100%; overflow-y: auto; overflow-x: hidden; }
+
+.bk-net-chip {
+  margin-left: 8px;
+  font-size: 11px; font-weight: 800;
+  padding: 2px 9px; border-radius: 999px;
+  background: rgba(0,0,0,0.3); color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.bk-net-chip.up { color: #2ed178; background: rgba(46,209,120,0.18); }
+.bk-net-chip.down { color: #ff625d; background: rgba(255,98,93,0.18); }
+
+.ledger-add { display: flex; gap: 8px; margin-bottom: 10px; }
+.ledger-add input { flex: 1; }
+.ledger-add button { flex: 0 0 auto; padding: 0 14px; }
+
+.ledger {
+  list-style: none; margin: 0 0 10px; padding: 0;
+  max-height: 168px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.led-empty { color: var(--muted); font-size: 12px; padding: 8px 2px; }
+.led-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-radius: 8px;
+  background: rgba(0,0,0,0.22);
+  border: 1px solid rgba(255,226,142,0.16);
+}
+.led-type { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.led-amt { font-weight: 800; font-variant-numeric: tabular-nums; margin-left: auto; }
+.led-item.deposit .led-amt { color: #82f7ad; }
+.led-item.withdrawal .led-amt { color: #ffd479; }
+.led-del {
+  min-height: 0; width: 24px; height: 24px; padding: 0; flex: 0 0 auto;
+  border-radius: 50%; background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.12); color: var(--muted); font-size: 11px;
+}
+.led-del:hover { color: #ff625d; border-color: rgba(255,98,93,0.5); }
+
+.ledger-totals { display: flex; gap: 10px; }
+.lt {
+  flex: 1; text-align: center; padding: 8px 6px; border-radius: 8px;
+  background: rgba(0,0,0,0.22); border: 1px solid rgba(255,226,142,0.16);
+}
+.lt span { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 3px; }
+.lt b { font-size: 14px; font-variant-numeric: tabular-nums; }
+.lt.net { border-color: rgba(255,226,142,0.4); }
+.lt.net b.up { color: #2ed178; }
+.lt.net b.down { color: #ff625d; }
+.lt.net b.even { color: var(--muted); }
+
+/* ---------------- Bankroll badge in banner ---------------- */
+.bank-badge {
+  position: absolute;
+  top: 12px; right: 14px; z-index: 3;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 14px 7px 8px;
+  border-radius: 999px;
+  font-weight: 800; font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.2px;
+  color: #e9e0c6;
+  background: linear-gradient(180deg, rgba(8,22,16,0.7), rgba(3,12,9,0.6));
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+  backdrop-filter: blur(8px);
+  transition: color 0.18s, border-color 0.18s, box-shadow 0.18s;
+}
+.bank-badge .bb-arrow {
+  display: inline-grid; place-items: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  font-size: 11px; line-height: 1;
+  background: rgba(255,255,255,0.1);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
+}
+.bank-badge.even { color: #cdd6cf; }
+.bank-badge.up {
+  color: #8df7b6;
+  border-color: rgba(46,209,120,0.6);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.5), 0 0 18px rgba(46,209,120,0.35), inset 0 1px 0 rgba(255,255,255,0.12);
+}
+.bank-badge.up .bb-arrow { background: rgba(46,209,120,0.3); color: #042a17; }
+.bank-badge.down {
+  color: #ff9b97;
+  border-color: rgba(255,98,93,0.6);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.5), 0 0 18px rgba(255,98,93,0.3), inset 0 1px 0 rgba(255,255,255,0.12);
+}
+.bank-badge.down .bb-arrow { background: rgba(255,98,93,0.32); color: #2a0606; }

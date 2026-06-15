@@ -10,6 +10,7 @@ export const DEFAULTS = {
   vpPaytable: "job_96", // video poker pay table preset key
   region: null, // { x, y, width, height } in physical pixels
   autoIntervalMs: 3000,
+  ledger: [], // bankroll entries: { type: "deposit"|"withdrawal", amount: number }
 };
 
 export function loadSettings() {

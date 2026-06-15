@@ -16,6 +16,10 @@
             <p class="subtitle">Perfect blackjack &amp; video-poker strategy.</p>
           </div>
         </div>
+        <div class="bank-badge even" id="bankBadge" title="Bankroll net">
+          <span class="bb-arrow">＝</span>
+          <span class="bb-val">Even</span>
+        </div>
         <div class="brand-shine"></div>
       </header>
 
@@ -89,6 +93,24 @@
             </div>
           </div>
           <div class="hint">Exact max-EV hold for the selected Game King title (incl. Deuces &amp; Joker wilds). Match it to the machine's posted pay table.</div>
+        </div>
+      </details>
+
+      <!-- Bankroll tracker -->
+      <details class="collapse" id="bankroll">
+        <summary><span class="ic">$</span> Bankroll <span class="bk-net-chip" id="netChip">Even</span></summary>
+        <div class="collapse-body">
+          <div class="ledger-add">
+            <input type="number" id="bkAmount" placeholder="Amount" min="0" step="0.01" inputmode="decimal" />
+            <button id="addDeposit" class="accent" type="button">＋ Deposit</button>
+            <button id="addWithdraw" type="button">－ Withdraw</button>
+          </div>
+          <ul class="ledger" id="ledgerList"></ul>
+          <div class="ledger-totals">
+            <div class="lt"><span>Deposited</span><b id="totDep">$0.00</b></div>
+            <div class="lt"><span>Withdrawn</span><b id="totWd">$0.00</b></div>
+            <div class="lt net"><span>Net</span><b id="totNet">Even</b></div>
+          </div>
         </div>
       </details>
 
